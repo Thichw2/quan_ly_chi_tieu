@@ -32,19 +32,41 @@ const LoginPage = () => {
   const handleLogin = async () => {
     setLoading(true)
     try {
-      const data = await Login(email, password)
-      localStorage.setItem("access_token", data?.data.access_token)
-      localStorage.setItem("user_id", data?.data.user._id)
-      localStorage.setItem("family_id", data?.data.user.family_id)
-      localStorage.setItem("isAdmin", data?.data.user.role === "admin" ? "true" : "false")
+      // COMMENT HOẶC XOÁ DÒNG GỌI API THẬT
+      // const data = await Login(email, password)
+      
+      // GIẢ LẬP DỮ LIỆU THÀNH CÔNG
+      const fakeData = {
+        data: {
+          access_token: "fake_token_for_demo",
+          user: {
+            _id: "654321", // ID giả
+            family_id: "123456", // ID gia đình giả
+            role: "admin" // Hoặc "member" tùy bạn muốn demo quyền nào
+          }
+        }
+      }
+
+      // Lưu các giá trị giả vào localStorage
+      localStorage.setItem("access_token", fakeData.data.access_token)
+      localStorage.setItem("user_id", fakeData.data.user._id)
+      localStorage.setItem("family_id", fakeData.data.user.family_id)
+      localStorage.setItem("isAdmin", fakeData.data.user.role === "admin" ? "true" : "false")
+      
+      // Thông báo thành công để demo chuyên nghiệp hơn
+      toast({
+        title: "Login Successful",
+        description: "Welcome to the demo version.",
+      })
+
       navigate('/')
     } catch (e) {
+      // Phần này sẽ không bao giờ chạy tới với logic trên, nhưng cứ giữ lại cho đúng cấu trúc
       toast({
         title: "Login Failed",
         description: "Invalid email or password.",
         variant: "destructive",
       })
-      setEmailError('Invalid username or password')
     }
     setLoading(false)
   }

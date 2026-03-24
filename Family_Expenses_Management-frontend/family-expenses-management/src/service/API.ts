@@ -1,473 +1,207 @@
-import axios from 'axios'
-import apiUrl from './apiUrl'
-import API_URL from './apiUrl';
+// Bỏ import axios và apiUrl vì chúng ta không cần gọi mạng nữa
+// import axios from 'axios'
+// import apiUrl from './apiUrl'
+
+// --- DỮ LIỆU GIẢ (MOCK DATA) ---
+const mockCategories = [
+  { id: 1, name: "Ăn uống", value: 5000000 },
+  { id: 2, name: "Di chuyển", value: 1000000 },
+  { id: 3, name: "Giải trí", value: 2000000 },
+];
+
+const mockMembers = [
+  { id: 1, name: "Bố", amount: 15000000, role: "admin" },
+  { id: 2, name: "Mẹ", amount: 12000000, role: "member" },
+];
+
+const mockExpenses = [
+  { id: 1, name: "Siêu thị Winmart", amount: 450000, category: "Ăn uống", member: "Mẹ", date_str: "2024-03-20" },
+  { id: 2, name: "Tiền điện tháng 3", amount: 1200000, category: "Hóa đơn", member: "Bố", date_str: "2024-03-18" },
+  { id: 3, name: "Thay nhớt xe", amount: 250000, category: "Di chuyển", member: "Con trai", date_str: "2024-03-15" },
+  { id: 4, name: "Mua sách giáo khoa", amount: 300000, category: "Giáo dục", member: "Con gái", date_str: "2024-03-10" },
+  { id: 5, name: "Đi ăn Pizza", amount: 600000, category: "Ăn uống", member: "Cả nhà", date_str: "2024-03-22" },
+];
+
+// Hàm tiện ích tạo delay giả lập mạng chậm (tùy chọn, để giao diện có hiệu ứng loading)
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- CÁC HÀM API GIẢ LẬP ---
 
 export async function Login(username: string, password: string) {
-    const response = await axios.post(
-        `${apiUrl}/auth/login`,
-        new URLSearchParams({
-            username: username,
-            password: password
-        }),
-        {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        }
-    );
-    return response;
+    await delay(500);
+    localStorage.setItem("access_token", "fake-jwt-token-12345");
+    localStorage.setItem("user_id", "1");
+    localStorage.setItem("family_id", "1");
+    return { status: 200, data: { message: "Đăng nhập thành công" } };
 }
 
-export async function RegisterUser(
-    username: string, 
-    email: string, 
-    password: string,
-    fullName: string,
-    specificRoles: string
-) {
-    const response = await axios.post(
-        `${apiUrl}/auth/register`,
-        new URLSearchParams({
-            fullname: fullName.trim(),
-            username: username.trim(),
-            email: email.trim(),
-            password: password,
-            role: 'admin',
-            specific_role: specificRoles.toLowerCase().trim()
-        }),
-        {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        }
-    );
-    return response;
+export async function RegisterUser() {
+    await delay(500);
+    return { status: 201, data: { message: "Đăng ký thành công" } };
 }
 
 export async function CreateFamilyNames(familyName: string) {
-    const access_token = localStorage.getItem('access_token');
-    
-    if (!access_token) {
-        throw new Error('No access token found');
-    }
-
-    const response = await axios.post(
-        `${API_URL}/family/create`,
-        `name=${familyName}`,
-        {
-            headers: {
-                'accept': 'application/json',
-                'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            withCredentials: true
-        }
-    );
-
-    return response;
+    await delay(500);
+    return { status: 201, data: { message: "Tạo gia đình thành công", name: familyName } };
 }
 
 export async function CreateCategories(category: string) {
-    const access_token = localStorage.getItem("access_token")
-    if (!access_token) {
-        throw new Error('No access token found');
-    }
-
-    const response = await axios.post(
-        `${API_URL}/expense-categories`,
-        `name=${category}`,
-        {
-            headers: {
-                'accept': 'application/json',
-                'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            },
-        }
-    );
-
-    return response
+    await delay(300);
+    return { status: 201, data: { message: "Tạo danh mục thành công" } };
 }
 
-export async function AdminRegisterUser(
-    username: string, 
-    email: string, 
-    password: string,
-    fullName: string,
-    specificRoles: string,
-    role: string
-) {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.post(
-        `${apiUrl}/users/add_members`,
-        new URLSearchParams({
-            fullname: fullName.trim(),
-            username: username.trim(),
-            email: email.trim(),
-            password: password,
-            role: role,
-            specific_role: specificRoles.toLowerCase().trim(),
-        }),
-        {
-            headers: {
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        }
-    );
-    return response;
+export async function AdminRegisterUser() {
+    await delay(500);
+    return { status: 201, data: { message: "Thêm thành viên thành công" } };
 }
 
 export async function Logout() {
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("family_id")
-    localStorage.removeItem("user_id")
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("family_id");
+    localStorage.removeItem("user_id");
 }
 
 export async function GetFamilyData() {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/expenses/family-data`,
-    {
-        headers: {
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
+    await delay(500);
+    return { 
+        status: 200, 
+        data: {
+            totalBudget: 30000000,
+            totalSpent: 8000000,
+            categoryData: mockCategories,
+            memberData: mockMembers,
+            recentExpenses: mockExpenses
+        } 
+    };
 }
 
 export async function getMemberFamily() {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/users/family`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
+    await delay(300);
+    return { status: 200, data: mockMembers };
 }
 
-export async function getMemberData () {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/expenses/member-data`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
+export async function getMemberData() {
+    await delay(500);
+    return { 
+        status: 200, 
+        data: {
+            // Dashboard dùng Object.entries nên key phải là tên Member
+            members: {
+                "Bố": {
+                    totalBudget: 15000000,
+                    totalSpent: 4000000,
+                    categoryData: mockCategories,
+                    recentExpenses: mockExpenses
+                },
+                "Mẹ": {
+                    totalBudget: 15000000,
+                    totalSpent: 2500000,
+                    categoryData: mockCategories,
+                    recentExpenses: mockExpenses
+                }
+            }
+        } 
+    };
 }
 
-export async function getBudgets () {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/budgets`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
-}
-export async function getExpenses () {
-    const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/expenses`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
+export async function getBudgets() {
+    await delay(400);
+    return { 
+        status: 200, 
+        data: [
+            { id: 1, category_id: 1, amount: 10000000, month: "10", year: "2023" }
+        ] 
+    };
 }
 
-export async function createNewExpenses(categoryId: string, amount: number, date_str: string, description: string) {
-    const access_token = localStorage.getItem("access_token");
-    const newAmount = amount.toString()
-    const response = await axios.post(
-      `${API_URL}/expenses/`,
-      new URLSearchParams({
-        category_id: categoryId,
-        amount: newAmount,
-        date_str: date_str,
-        description: description,
-      }).toString(),
-      {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
-
-    return response
-  }
-
-  export async function getCategories () {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.get(`
-    ${apiUrl}/expense-categories/`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
-  }
-
-  export async function updateExpense(expenseId: string, categoryId: string, amount: number, date_str: string, description: string) {
-    const access_token = localStorage.getItem("access_token");
-    const newAmount = amount.toString()
-    const response = await axios.put(
-      `${API_URL}/expenses/${expenseId}`,
-      new URLSearchParams({
-        category_id: categoryId,
-        amount: newAmount,
-        date_str: date_str.toString().split('T')[0],
-        description: description,
-      }).toString(),
-      {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
-
-    return response
-  }
-
-export async function updateCategoy (categoryId: string, name: string) {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.put(
-        `${API_URL}/expense-categories/${categoryId}`, 
-        new URLSearchParams({
-            name: name
-          }),
-          {
-            headers: {
-              'accept': 'application/json',
-              'Authorization': `Bearer ${access_token}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-          }
-    )
-    return response
+export async function getExpenses() {
+    await delay(400);
+    return { status: 200, data: mockExpenses };
 }
 
-export async function adminAddBudget(categoryId: string, amount: string, period: string, userId: string) {
-    const access_token = localStorage.getItem("access_token");
-    const [year, month] = period.split("-");
-    const data = new URLSearchParams({
-        category_id: categoryId,
-        amount: amount,
-        month: month,
-        year: year,
-        user_id: userId,
-    });
-    const response = await axios.post(
-        `${API_URL}/budgets/`,
-        data.toString(),
-        {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${access_token}`,
-                'accept': 'application/json',
-            },
-        }
-    );
-    return response;
+export async function createNewExpenses() {
+    await delay(300);
+    return { status: 201, data: { message: "Đã thêm chi tiêu" } };
 }
 
-export async function deleteExpense(expenseId: string)  {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.delete(`
-    ${API_URL}/expenses/${expenseId}`,
-    {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    )
-
-    return response
+export async function getCategories() {
+    await delay(300);
+    return { status: 200, data: mockCategories };
 }
 
-export async function UpdateBudget(
-    budgetId: string,
-    userId: string,
-    categoryId: string,
-    amount: string,
-    month: string,
-    year: string
-  ) {
-      const access_token = localStorage.getItem("access_token");
-    const [_, months] = month.split("-");
-    const response = await axios.put(
-        `${API_URL}/budgets/${budgetId}`,
-        new URLSearchParams({
-          user_id: userId,
-          category_id: categoryId,
-          amount: amount,
-          month: months,
-          year: year,
-        }).toString(),
-        {
-          headers: {
-            accept: "application/json",
-            Authorization: `Bearer ${access_token}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        }
-      );
+export async function updateExpense() {
+    await delay(300);
+    return { status: 200, data: { message: "Cập nhật chi tiêu thành công" } };
+}
+
+export async function updateCategoy() {
+    await delay(300);
+    return { status: 200, data: { message: "Cập nhật danh mục thành công" } };
+}
+
+export async function adminAddBudget() {
+    await delay(300);
+    return { status: 201, data: { message: "Thêm ngân sách thành công" } };
+}
+
+export async function deleteExpense() {
+    await delay(300);
+    return { status: 200, data: { message: "Xóa thành công" } };
+}
+
+export async function UpdateBudget() {
+    await delay(300);
+    return { status: 200, data: { message: "Cập nhật ngân sách thành công" } };
+}
   
-    return response;
-  }
-  
-export async function deleteBudget(budgetId: string)  {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.delete(`
-    ${API_URL}/budgets/${budgetId}`,
-    {
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    )
-
-    return response
+export async function deleteBudget() {
+    await delay(300);
+    return { status: 200, data: { message: "Xóa ngân sách thành công" } };
 }
 
-export async function RequestBudget(categoryId: string, period:string, amount:string) {
-    const access_token = localStorage.getItem("access_token");
-    const userId = localStorage.getItem("user_id");
-    if (!access_token || !userId) {
-        throw new Error("Missing access token or user ID");
-    }
-    const [year, month] = period.split("-");
-    const data = new URLSearchParams({
-        category_id: categoryId,
-        requested_amount: amount,
-        month: month,
-        user_id: userId,
-        year: year,
-    });
-    const response = await axios.post(
-        `${API_URL}/budget-requests/`,
-        data.toString(),
-        {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${access_token}`,
-                'accept': 'application/json',
-            },
-        }
-    );
-    return response;
+export async function RequestBudget() {
+    await delay(400);
+    return { status: 201, data: { message: "Yêu cầu ngân sách thành công" } };
 }
 
-export async function GetMonthlyData () {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.get(`
-    ${apiUrl}/expenses/monthly-data`,
-    {
-        headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${access_token}`,
-        }
-    })
-    return response
+export async function GetMonthlyData() {
+    await delay(500);
+    return { 
+        status: 200, 
+        data: [
+            { month: "T1", expense: 12000000, budget: 15000000 },
+            { month: "T2", expense: 15000000, budget: 15000000 },
+            { month: "T3", expense: 9000000, budget: 15000000 },
+        ] 
+    };
 }
 
-export async function ChangePassword(currentPassword: string, newPassword: string) {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.put(
-        `${API_URL}/auth/change-password`,
-        new URLSearchParams({
-            current_password: currentPassword,
-            new_password: newPassword,
-        }),
-        {
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        }
-    );
-    return response
+export async function ChangePassword() {
+    await delay(500);
+    return { status: 200, data: { message: "Đổi mật khẩu thành công" } };
 }
 
-export async function BugetPending () {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.get(`
-        ${API_URL}/budget-requests/pending
-    `, {
-        headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-    })
-
-    return response
+export async function BugetPending() {
+    await delay(400);
+    return { 
+        status: 200, 
+        data: [
+            { id: 1, category_name: "Giải trí", requested_amount: 500000, user_name: "Mẹ", status: "pending" }
+        ] 
+    };
 }
 
-export async function ApproveBudget (requestId: string) {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.put(`
-        ${API_URL}/budget-requests/approve/${requestId}
-    `, {},{
-        headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Accept': 'application/json',
-        },
-    })
-
-    return response
+export async function ApproveBudget() {
+    await delay(300);
+    return { status: 200, data: { message: "Đã duyệt" } };
 }
 
-export async function RejectBudget (requestId: string) {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.put(`
-        ${API_URL}/budget-requests/deny/${requestId}
-    `, {},{
-        headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Accept': 'application/json',
-        },
-    })
-
-    return response
+export async function RejectBudget() {
+    await delay(300);
+    return { status: 200, data: { message: "Đã từ chối" } };
 }
 
-export async function ForgotPassword(email: string) {
-    const data = new URLSearchParams();
-    data.append('email', email);
-    const response = await axios.post(
-        `${API_URL}/auth/forget-password`,
-        data.toString(), 
-        {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json',
-            },
-        }
-    );
-    return response
+export async function ForgotPassword() {
+    await delay(500);
+    return { status: 200, data: { message: "Đã gửi email khôi phục" } };
 }
