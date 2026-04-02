@@ -1,74 +1,101 @@
-
-
-import { useState } from 'react'
-import { Eye, EyeOff, LogIn, Mail } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Eye, EyeOff, LogIn, Mail, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Login, ForgotPassword } from '@/service/API' // Giả định bạn có hàm ForgotPassword trong service
+import { Login, ForgotPassword } from '@/service/API'
 import { useNavigate } from 'react-router-dom'
-import { Loader2 } from "lucide-react"
 import { useToast } from '@/hooks/use-toast'
-
+import { useLocation } from 'react-router-dom';
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('') // FastAPI dùng username
   const [password, setPassword] = useState('')
-  const [emailError, setEmailError] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [loading, setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
- 
-  const validateEmail = (email: string) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return regex.test(email)
-  }
+  const location = useLocation()
 
-  const handleLogin = async () => {
+  // Thêm useEffect để bắt thông báo từ trang khác chuyển về
+  useEffect(() => {
+    if (location.state?.message) {
+      toast({
+        title: "Thông báo",
+        description: location.state.message,
+      });
+      // Xóa state để tránh hiện lại khi F5
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, toast]);
+ const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
     setLoading(true)
     try {
-      // COMMENT HOẶC XOÁ DÒNG GỌI API THẬT
-      // const data = await Login(email, password)
+      const response = await Login(username, password)
       
-      // GIẢ LẬP DỮ LIỆU THÀNH CÔNG
-      const fakeData = {
-        data: {
-          access_token: "fake_token_for_demo",
-          user: {
-            _id: "654321", // ID giả
-            family_id: "123456", // ID gia đình giả
-            role: "admin" // Hoặc "member" tùy bạn muốn demo quyền nào
-          }
+      // 1. LẤY DỮ LIỆU ĐÚNG CẤU TRÚC
+      const { access_token, user } = response.data 
+
+      // 2. LƯU TOKEN VÀ THÔNG TIN USER
+      localStorage.setItem("access_token", access_token)
+      
+      if (user) {
+        // Lưu _id (Backend trả về _id chứ không phải user_id)
+        localStorage.setItem("user_id", user._id)
+        
+        // Lưu family_id (Nếu có)
+        if (user.family_id) {
+          localStorage.setItem("family_id", user.family_id)
+        } else {
+          localStorage.removeItem("family_id") // Đảm bảo sạch dữ liệu cũ
         }
+
+        // Lưu quyền Admin
+        localStorage.setItem("isAdmin", user.role === "admin" ? "true" : "false")
       }
 
-      // Lưu các giá trị giả vào localStorage
-      localStorage.setItem("access_token", fakeData.data.access_token)
-      localStorage.setItem("user_id", fakeData.data.user._id)
-      localStorage.setItem("family_id", fakeData.data.user.family_id)
-      localStorage.setItem("isAdmin", fakeData.data.user.role === "admin" ? "true" : "false")
-      
-      // Thông báo thành công để demo chuyên nghiệp hơn
       toast({
-        title: "Login Successful",
-        description: "Welcome to the demo version.",
+        title: "Đăng nhập thành công",
+        description: "Đang chuyển hướng...",
       })
 
-      navigate('/')
-    } catch (e) {
-      // Phần này sẽ không bao giờ chạy tới với logic trên, nhưng cứ giữ lại cho đúng cấu trúc
+      // 3. ĐIỀU HƯỚNG DỰA TRÊN USER.FAMILY_ID
+      // Quan trọng: Phải kiểm tra user.family_id thay vì biến family_id ở ngoài
+      setTimeout(() => {
+        if (!user.family_id) {
+          navigate('/create-family')
+        } else {
+          navigate('/')
+        }
+      }, 500)
+
+    } catch (error: any) {
+      console.error("Lỗi đăng nhập:", error)
+      
+      // Nếu Backend báo chưa xác thực email (Ví dụ mã lỗi 403)
+      if (error.response?.status === 403) {
+        toast({
+          title: "Tài khoản chưa xác thực",
+          description: "Bạn cần nhập mã OTP gửi tới email trước khi đăng nhập.",
+          variant: "destructive",
+        })
+        // Tự động chuyển sang trang verify nếu chưa xác thực
+        navigate('/verify-email', { state: { username: username } })
+        return
+      }
+
       toast({
-        title: "Login Failed",
-        description: "Invalid email or password.",
+        title: "Lỗi đăng nhập",
+        description: error.response?.data?.detail || "Sai tài khoản hoặc mật khẩu.",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleForgotPassword = async () => {
@@ -76,53 +103,45 @@ const LoginPage = () => {
     try {
       await ForgotPassword(forgotEmail)
       toast({
-        title: "Email Sent",
-        description: "A reset password email has been sent to your inbox.",
+        title: "Đã gửi email",
+        description: "Vui lòng kiểm tra hộp thư để khôi phục mật khẩu.",
       })
       setForgotEmail('')
     } catch (e) {
       toast({
-        title: "Error",
-        description: "Failed to send reset email. Please check the email address.",
+        title: "Lỗi",
+        description: "Không thể gửi email khôi phục.",
         variant: "destructive",
       })
+    } finally {
+      setForgotLoading(false)
     }
-    setForgotLoading(false)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    handleLogin()
-    setPasswordError('')
-    setEmailError('')
   }
 
   return (
-    <div className="bg-[url('/bg.png')] w-full bg-cover bg-center min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="bg-[url('/bg.png')] w-full bg-cover bg-center min-h-screen flex items-center justify-center bg-gray-900">
       <Card className="w-full max-w-md bg-white/10 backdrop-blur-md border-white/20 shadow-xl">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center text-white">Login</CardTitle>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center text-white">Đăng Nhập</CardTitle>
           <CardDescription className="text-center text-gray-200">
-            Enter your username and password to login to your account
+            Quản lý chi tiêu gia đình hiệu quả hơn
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-white">Username</Label>
+              <Label htmlFor="username" className="text-white">Tên đăng nhập</Label>
               <Input 
-                id="email" 
-                type="text" 
+                id="username" 
                 placeholder="username" 
                 required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="bg-white/20 text-white placeholder-gray-300"
               />
-              {emailError && <p className="text-red-400 text-sm">{emailError}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+              <Label htmlFor="password" className="text-white">Mật khẩu</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -134,63 +153,42 @@ const LoginPage = () => {
                 />
                 <button
                   type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">
-                    {showPassword ? "Hide password" : "Show password"}
-                  </span>
                 </button>
               </div>
-              {passwordError && <p className="text-red-400 text-sm">{passwordError}</p>}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white" type="submit">
-              {
-                loading ? (<Loader2 className="animate-spin" />) : (<LogIn className="mr-2 h-4 w-4" /> )
-              }
-              Login
+            <Button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700" type="submit">
+              {loading ? <Loader2 className="animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+              Đăng nhập
             </Button>
-            <Dialog>
-                <div className='flex items-center w-full justify-between'>
-              <DialogTrigger asChild>
-                <Button variant="link" className="text-blue-200 hover:underline">
-                  Forgot Password?
-                </Button>
-              </DialogTrigger>
-                <Button 
-                onClick={() => {
-                  navigate('/register')
-                }}
-                variant="link" className="text-blue-200 hover:underline">
-                  Register
-                </Button>
-                </div>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Forgot Password</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <Label htmlFor="forgot-email">Email</Label>
-                  <Input
-                    id="forgot-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                  />
-                  <Button
-                    onClick={handleForgotPassword}
-                    disabled={forgotLoading || !validateEmail(forgotEmail)}
-                  >
-                    {forgotLoading ? <Loader2 className="animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                    Send Reset Link
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <div className='flex items-center w-full justify-between text-sm'>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="link" className="text-blue-200 p-0">Quên mật khẩu?</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Khôi phục mật khẩu</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Nhập email của bạn"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
+                    <Button onClick={handleForgotPassword} disabled={forgotLoading} className="w-full">
+                      {forgotLoading ? <Loader2 className="animate-spin" /> : "Gửi link khôi phục"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button onClick={() => navigate('/register')} variant="link" className="text-blue-200 p-0">
+                Đăng ký tài khoản
+              </Button>
+            </div>
           </CardFooter>
         </form>
       </Card>

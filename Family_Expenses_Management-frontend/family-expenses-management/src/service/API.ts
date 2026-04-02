@@ -1,6 +1,6 @@
 // Bỏ import axios và apiUrl vì chúng ta không cần gọi mạng nữa
-// import axios from 'axios'
-// import apiUrl from './apiUrl'
+import axios from 'axios'
+import apiUrl from './apiUrl'
 
 // --- DỮ LIỆU GIẢ (MOCK DATA) ---
 const mockCategories = [
@@ -28,16 +28,94 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // --- CÁC HÀM API GIẢ LẬP ---
 
 export async function Login(username: string, password: string) {
-    await delay(500);
-    localStorage.setItem("access_token", "fake-jwt-token-12345");
-    localStorage.setItem("user_id", "1");
-    localStorage.setItem("family_id", "1");
-    return { status: 200, data: { message: "Đăng nhập thành công" } };
+    // Sử dụng URLSearchParams để gửi dữ liệu dạng Form
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+
+    const response = await axios.post(
+        `${apiUrl}/auth/login`,
+        params, // Gửi params thay vì object {}
+        {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            }
+        }
+    );
+    return response;
 }
 
-export async function RegisterUser() {
-    await delay(500);
-    return { status: 201, data: { message: "Đăng ký thành công" } };
+export async function RegisterUser(
+    username: string, 
+    email: string, 
+    password: string,
+    fullName: string,
+    specificRoles: string
+) {
+    const params = new URLSearchParams();
+    params.append('fullname', fullName.trim());
+    params.append('username', username.trim());
+    params.append('email', email.trim());
+    params.append('password', password);
+    params.append('role', 'admin'); // Hoặc logic role của bạn
+    params.append('specific_role', specificRoles);
+
+    return await axios.post(`${apiUrl}/auth/register`, params, {
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+        }
+    });
+}
+export async function VerifyEmail(email: string, otp: string) {
+    const params = new URLSearchParams();
+    params.append('email', email);
+    params.append('otp', otp);
+
+    return await axios.post(`${apiUrl}/auth/verify-email`, params, {
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+        }
+    });
+}
+
+// 4. ĐỔI MẬT KHẨU (Change Password)
+export async function ChangePassword(currentPassword: string, newPassword: string) {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.put(
+        `${apiUrl}/auth/change-password`,
+        new URLSearchParams({
+            current_password: currentPassword,
+            new_password: newPassword,
+        }),
+        {
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        }
+    );
+    return response
+}
+
+// 5. QUÊN MẬT KHẨU (Forgot Password)
+export async function ForgotPassword(email: string) {
+    const data = new URLSearchParams();
+    data.append('email', email);
+    const response = await axios.post(
+        `${apiUrl}/auth/forget-password`,
+        data.toString(), 
+        {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+            },
+        }
+    );
+    return response
 }
 
 export async function CreateFamilyNames(familyName: string) {
@@ -176,10 +254,7 @@ export async function GetMonthlyData() {
     };
 }
 
-export async function ChangePassword() {
-    await delay(500);
-    return { status: 200, data: { message: "Đổi mật khẩu thành công" } };
-}
+
 
 export async function BugetPending() {
     await delay(400);
@@ -201,7 +276,3 @@ export async function RejectBudget() {
     return { status: 200, data: { message: "Đã từ chối" } };
 }
 
-export async function ForgotPassword() {
-    await delay(500);
-    return { status: 200, data: { message: "Đã gửi email khôi phục" } };
-}

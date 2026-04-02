@@ -1,220 +1,145 @@
-'use client'
-
 import { useState, useEffect } from 'react'
-import { Eye, EyeOff, UserPlus } from 'lucide-react'
+import { Eye, EyeOff, UserPlus, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegistrationSuccessDialog } from '@/components/register/RegistrationSuccess'
-
 import { RegisterUser } from '@/service/API'
-
+import { useNavigate } from 'react-router-dom'
+import { useToast } from '@/hooks/use-toast'
 
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [userName, setUserName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [emailError, setEmailError] = useState('')
-  const [loading, setLoading] = useState<boolean>(false)
-  const [passwordError, setPasswordError] = useState('')
-  const [confirmPasswordError, setConfirmPasswordError] = useState('')
+  const [selectedRole, setSelectedRole] = useState('')
+  
+  const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<string>('');
-  const [userName, setUserName] = useState<string>('')
   const [showDialog, setShowDialog] = useState(false)
-  const handleChange = (value: string) => {
-    setSelectedRole(value);
-    console.log("Selected Role:", value); 
-  };
+  
+  const navigate = useNavigate()
+  const { toast } = useToast()
 
+  const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+  const validatePassword = (p: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(p)
 
-  const handleRegisterUser = async () => {
+ // Trong RegisterPage.tsx, sửa hàm handleRegister:
+
+ const handleRegister = async () => {
     setLoading(true)
-    try {
-      await RegisterUser(userName, email, password, name, selectedRole)
-      setTimeout(() => {
-        setShowDialog(true)
-      }, 500)
-    } catch (e) {
-      console.log(e)
+  try {
+    const res = await RegisterUser(userName, email, password, name, selectedRole);
+    
+    toast({
+      title: "Đăng ký thành công",
+      description: "Mã OTP đã được gửi. Vui lòng kiểm tra email của bạn.",
+    });
+
+    // Truyền cả email và username sang trang verify
+    navigate('/verify-email', { 
+      state: { 
+        email: email,
+        username: userName // Thêm cái này
+      } 
+    });
+  }
+     catch (e: any) {
+      console.error("LỖI ĐĂNG KÝ:", e);
+      toast({
+        title: "Lỗi",
+        description: e.response?.data?.detail || "Không thể gửi mail xác nhận. Vui lòng kiểm tra lại cấu hình mail server.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false)
   }
-
-  const validateEmail = (email: string) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return regex.test(email)
-  }
-
-  const validatePassword = (password: string) => {
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/
-    return regex.test(password)
-  }
-
-  useEffect(() => {
-    if (isSubmitting) {
-      setEmailError(validateEmail(email) ? '' : 'Please enter a valid email address')
-      setPasswordError(validatePassword(password) ? '' : 'Password must be at least 8 characters long, contain 1 uppercase letter, 1 lowercase letter, and 1 number')
-      setConfirmPasswordError(password === confirmPassword ? '' : 'Passwords do not match')
-    }
-  }, [name, email, password, confirmPassword, isSubmitting])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    if (validateEmail(email) && validatePassword(password) && password === confirmPassword) {
-      handleRegisterUser()
+    if (validateEmail(email) && validatePassword(password) && password === confirmPassword && userName && selectedRole) {
+      handleRegister()
     }
   }
 
   return (
-    <div className="bg-[url('/bg.png')] w-full bg-cover bg-center min-h-screen flex items-center justify-center relative overflow-hidden">
-      <Card className="w-full max-w-md bg-white/10 backdrop-blur-md border-white/20 shadow-xl z-10">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center text-white">Create an account</CardTitle>
-          <CardDescription className="text-center text-gray-200">
-            Enter your information to create your account
-          </CardDescription>
+    <div className="bg-[url('/bg.png')] w-full bg-cover bg-center min-h-screen flex items-center justify-center bg-slate-900">
+      <Card className="w-full max-w-md bg-white/10 backdrop-blur-md border-white/20 shadow-2xl text-white">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+          <CardDescription className="text-center text-slate-300">Đăng ký thành viên gia đình</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-white">Full Name</Label>
-              <Input 
-                id="name" 
-                placeholder="John Doe" 
-                required 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="bg-white/20 text-white placeholder-gray-300"
-              />
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label>Họ và Tên</Label>
+              <Input required value={name} onChange={(e) => setName(e.target.value)} className="bg-white/20" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="m@example.com" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/20 text-white placeholder-gray-300"
-              />
-              <p className={`text-red-400 text-sm transition-all duration-300 ${emailError ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0'}`}>
-                {emailError}
-              </p>
+
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/20" />
+              {isSubmitting && !validateEmail(email) && <p className="text-red-400 text-xs">Email không hợp lệ</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-white">Username</Label>
-              <Input 
-                id="email" 
-                type="text" 
-                placeholder="example" 
-                required 
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="bg-white/20 text-white placeholder-gray-300"
-              />
-              <p className={`text-red-400 text-sm transition-all duration-300 ${emailError ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0'}`}>
-                {emailError}
-              </p>
+
+            <div className="space-y-1">
+              <Label>Tên đăng nhập</Label>
+              <Input required value={userName} onChange={(e) => setUserName(e.target.value)} className="bg-white/20" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+
+            <div className="space-y-1">
+              <Label>Mật khẩu</Label>
               <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-white/20 text-white"
-                />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">
-                    {showPassword ? "Hide password" : "Show password"}
-                  </span>
+                <Input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="bg-white/20" />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p className={`text-red-400 text-sm transition-all duration-300 ${passwordError ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0'}`}>
-                {passwordError}
-              </p>
+              {isSubmitting && !validatePassword(password) && <p className="text-red-400 text-xs">Mật khẩu cần 8 ký tự, có Hoa, thường và Số</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-white">Confirm Password</Label>
-              <Input 
-                id="confirm-password" 
-                type="password" 
-                required 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-white/20 text-white"
-              />
-              <p className={`text-red-400 text-sm transition-all duration-300 ${confirmPasswordError ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0'}`}>
-                {confirmPasswordError}
-              </p>
+
+            <div className="space-y-1">
+              <Label>Xác nhận mật khẩu</Label>
+              <Input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white/20" />
+              {isSubmitting && password !== confirmPassword && <p className="text-red-400 text-xs">Mật khẩu không khớp</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-white">Roles</Label>
-              <Select onValueChange={handleChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
+
+            <div className="space-y-1">
+              <Label>Vai trò</Label>
+              <Select onValueChange={setSelectedRole} required>
+                <SelectTrigger className="bg-white/20 border-white/30"><SelectValue placeholder="Bạn là ai?" /></SelectTrigger>
                 <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Roles</SelectLabel>
-                    <SelectItem value="father">Father</SelectItem>
-                    <SelectItem value="mother">Mother</SelectItem>
-                    <SelectItem value="child">Child</SelectItem>
-                    <SelectItem value="grandchild">Grandchild</SelectItem>
-                    <SelectItem value="grandfather">Grandfather</SelectItem>
-                    <SelectItem value="grandmother">Grandmother</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectGroup>
+                  <SelectItem value="father">Ba (Father)</SelectItem>
+                  <SelectItem value="mother">Mẹ (Mother)</SelectItem>
+                  <SelectItem value="child">Con (Child)</SelectItem>
+                  <SelectItem value="other">Khác</SelectItem>
                 </SelectContent>
               </Select>
-
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" type="submit">
-              {
-                loading ? (<Loader2 className="animate-spin" />) : (<UserPlus className="mr-2 h-4 w-4" />  )
-              }
-              Register
+
+          <CardFooter className="flex flex-col gap-3">
+            <Button disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700" type="submit">
+              {loading ? <Loader2 className="animate-spin mr-2" /> : <UserPlus size={18} className="mr-2" />}
+              Đăng ký
             </Button>
-            <p className="text-sm text-center text-gray-300">
-              Already have an account?{" "}
-              <a href="/login" className="text-blue-400 hover:underline">
-                Login
-              </a>
+            <p className="text-sm text-center">
+              Đã có tài khoản? <Button variant="link" onClick={() => navigate('/login')} className="text-indigo-300 p-0 h-auto">Đăng nhập</Button>
             </p>
           </CardFooter>
         </form>
       </Card>
-      <RegistrationSuccessDialog isOpen={showDialog} onClose={() => setShowDialog(false)} />
+      <RegistrationSuccessDialog isOpen={showDialog} onClose={() => navigate('/login')} />
     </div>
   )
 }
 
 export default RegisterPage
-

@@ -12,14 +12,15 @@ import Settings from './pages/Settings';
 import CreateFamilyPage from './pages/CreateFamily';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-
+import VerifyEmail from './pages/VerifyEmail';
+import { Toaster } from './components/ui/toaster';
 function CreateFamilyDialog() {
   const navigate = useNavigate();
   const family_id = localStorage.getItem('family_id');
   
   const user_id = localStorage.getItem('user_id');
   const access_token = localStorage.getItem('access_token');
-  const publicPaths = ['/login', '/register', '/create-family'];
+  const publicPaths = ['/login', '/register', '/create-family', '/verify-email'];
   const isPublicPath = publicPaths.some(path => window.location.pathname.includes(path));
   const shouldShowDialog = Boolean(family_id === 'null' && user_id && access_token && !isPublicPath);
   
@@ -60,7 +61,7 @@ function AppContent() {
   const access_token = localStorage.getItem('access_token');
 
   useEffect(() => {
-    const publicPaths = ['/login', '/register'];
+    const publicPaths = ['/login', '/register' , '/verify-email'];
     const currentPath = window.location.pathname;
     const isPublicPath = publicPaths.some(path => currentPath.includes(path));
 
@@ -76,6 +77,7 @@ function AppContent() {
     <>
       <CreateFamilyDialog />
       <Routes>
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/create-family" element={<CreateFamilyPage />} />
@@ -93,6 +95,7 @@ function App() {
   return (
     <Router>
       <AppContent />
+      <Toaster /> {/* Thêm dòng này ở đây */}
     </Router>
   );
 }
