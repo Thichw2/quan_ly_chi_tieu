@@ -76,7 +76,34 @@ def check_role(required_role: str):
         return current_user
     return role_checker
 
-def send_email(to_email: str, subject: str, body: str):
+async def send_reset_email(email_to: str, reset_link: str):
+    # Sử dụng MessageSchema và FastMail giống hàm verify
+    message = MessageSchema(
+        subject="Đặt lại mật khẩu - Family Expense",
+        recipients=[email_to],
+        body=f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+                <h2 style="color: #4f46e5;">Khôi phục mật khẩu</h2>
+                <p>Chào bạn, chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+                <p>Vui lòng click vào nút bên dưới để tiến hành (Link có hiệu lực trong 15 phút):</p>
+                <div style="margin: 20px 0;">
+                    <a href="{reset_link}" 
+                       style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                       Đặt lại mật khẩu
+                    </a>
+                </div>
+                <p>Nếu bạn không yêu cầu điều này, hãy bỏ qua email này.</p>
+                <p>Trân trọng,<br>Đội ngũ Family Expense</p>
+            </body>
+        </html>
+        """,
+        subtype=MessageType.html
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+async def send_email(to_email: str, subject: str, body: str):
     from_email = settings.EMAIL_USER
     password = settings.EMAIL_PASSWORD
 

@@ -1,11 +1,10 @@
-
 'use client'
 
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AxiosError } from 'axios';
+import { AxiosError } from 'axios'
 import {
   Select,
   SelectContent,
@@ -20,11 +19,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { AlertCircle } from 'lucide-react';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { AlertCircle, Mail, UserPlus } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AdminRegisterUser } from '@/service/API'
-
+import { AdminRegisterUser, inviteMemberViaEmail } from '@/service/API' // Bạn cần thêm hàm InviteUser vào API service nếu chưa có
 
 type FormErrors = {
   [key: string]: string;
@@ -39,29 +43,39 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState("direct");
+
+  // State cho tạo trực tiếp
   const [newMember, setNewMember] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
     fullName: '',
-    role: '',
-    specificRole: ''
+    role: 'member',
+    specificRole: 'child'
   });
+
+  // State cho mời qua email
+  const [inviteData, setInviteData] = useState({
+    email: '',
+    role: 'member'
+  });
+
   const [errors, setErrors] = useState<FormErrors>({});
 
   const validateField = (name: string, value: string): string => {
     switch (name) {
       case 'fullName':
-        return value.trim().length < 2 ? 'Full name must be at least 2 characters long' : '';
+        return value.trim().length < 2 ? 'Tên phải ít nhất 2 ký tự' : '';
       case 'username':
-        return !/^[a-zA-Z0-9_]{3,20}$/.test(value) ? 'Username must be 3-20 characters and can only contain letters, numbers, and underscores' : '';
+        return !/^[a-zA-Z0-9_]{3,20}$/.test(value) ? 'Username 3-20 ký tự, không chứa ký tự đặc biệt' : '';
       case 'email':
-        return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Invalid email address' : '';
+        return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Email không hợp lệ' : '';
       case 'password':
-        return !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(value) ? 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number' : '';
+        return value.length < 8 ? 'Mật khẩu tối thiểu 8 ký tự' : '';
       case 'confirmPassword':
-        return value !== newMember.password ? 'Passwords do not match' : '';
+        return value !== newMember.password ? 'Mật khẩu xác nhận không khớp' : '';
       default:
         return '';
     }
@@ -73,14 +87,8 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
     setErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setNewMember(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: '' }));
-  };
-
-  const handleAddMember = async (e: React.FormEvent) => {
+  const handleAddMemberDirect = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const newErrors: FormErrors = {};
     Object.entries(newMember).forEach(([key, value]) => {
       const error = validateField(key, value);
@@ -100,147 +108,152 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
         newMember.fullName,
         newMember.specificRole,
         newMember.role
-      )
+      );
+      toast({ title: "Thành công", description: "Đã tạo tài khoản và thêm vào gia đình." });
+      handleGetFamilyMember();
+      setIsDialogOpen(false);
+    } catch (e: any) {
       toast({
-          title: "Đăng ký tài khoản mới thành công!",
-          description: "Bạn có thể thêm budget cho tài khoản này ở mục Budget",
-        })
-        handleGetFamilyMember()
-      
-    } catch (e: unknown) {
-      if (e instanceof AxiosError) {
-        console.log(e);
-        toast({
-          variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-        });
-      } else {
-        console.error("An unexpected error occurred:", e);
-      }
+        variant: "destructive",
+        title: "Lỗi",
+        description: e.response?.data?.detail || "Không thể tạo user",
+      });
     }
-    
-    setNewMember({
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      fullName: '',
-      role: '',
-      specificRole: ''
-    })
-    setIsDialogOpen(false)
-    setErrors({})
   };
+const handleInviteEmail = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    // Gọi hàm API từ service/API.ts
+    const response = await inviteMemberViaEmail(inviteData.email, inviteData.role);
+    
+    toast({ 
+      title: "Thành công", 
+      description: response.data.message || `Đã gửi lời mời tới ${inviteData.email}` 
+    });
+    
+    // Reset form và đóng dialog
+    setInviteData({ email: '', role: 'member' });
+    setIsDialogOpen(false);
+  } catch (error: any) {
+    toast({ 
+      variant: "destructive", 
+      title: "Lỗi gửi lời mời", 
+      description: error.response?.data?.detail || "Không thể gửi lời mời lúc này." 
+    });
+  }
+};
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-          <Button>Thêm thành viên</Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Family Member</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddMember} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                name="fullName"
-                value={newMember.fullName}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.fullName && <p className="text-sm text-red-500">{errors.fullName}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                name="username"
-                value={newMember.username}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.username && <p className="text-sm text-red-500">{errors.username}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={newMember.email}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={newMember.password}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={newMember.confirmPassword}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                onValueChange={(value) => handleSelectChange('role', value)}
-                value={newMember.role}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="member">Member</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="specificRole">Specific Role</Label>
-              <Select
-                onValueChange={(value) => handleSelectChange('specificRole', value)}
-                value={newMember.specificRole}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a specific role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="grandparent">Grandparent</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
-                  <SelectItem value="child">Child</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {errors.submit && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{errors.submit}</AlertDescription>
+        <Button className="gap-2">
+          <UserPlus size={18} /> Thêm thành viên
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[450px]">
+        <DialogHeader>
+          <DialogTitle>Thêm thành viên mới</DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="direct" className="w-full" onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="direct">Tạo trực tiếp</TabsTrigger>
+            <TabsTrigger value="invite">Mời qua Email</TabsTrigger>
+          </TabsList>
+
+          {/* TAB 1: TẠO TRỰC TIẾP */}
+          <TabsContent value="direct">
+            <form onSubmit={handleAddMemberDirect} className="space-y-3 mt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Họ và tên</Label>
+                  <Input name="fullName" value={newMember.fullName} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Username</Label>
+                  <Input name="username" value={newMember.username} onChange={handleInputChange} required />
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <Label>Email</Label>
+                <Input name="email" type="email" value={newMember.email} onChange={handleInputChange} required />
+                {errors.email && <p className="text-[10px] text-red-500">{errors.email}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Mật khẩu</Label>
+                  <Input name="password" type="password" value={newMember.password} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Xác nhận</Label>
+                  <Input name="confirmPassword" type="password" value={newMember.confirmPassword} onChange={handleInputChange} required />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Vai trò hệ thống</Label>
+                  <Select onValueChange={(v) => setNewMember({...newMember, role: v})} defaultValue={newMember.role}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="member">Thành viên</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Vai trò gia đình</Label>
+                  <Select onValueChange={(v) => setNewMember({...newMember, specificRole: v})} defaultValue={newMember.specificRole}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="grandparent">Ông bà</SelectItem>
+                      <SelectItem value="parent">Bố mẹ</SelectItem>
+                      <SelectItem value="child">Con cái</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full mt-4">Tạo tài khoản</Button>
+            </form>
+          </TabsContent>
+
+          {/* TAB 2: MỜI QUA EMAIL */}
+          <TabsContent value="invite">
+            <form onSubmit={handleInviteEmail} className="space-y-4 mt-4">
+              <Alert>
+                <Mail className="h-4 w-4" />
+                <AlertDescription>
+                  Hệ thống sẽ gửi một liên kết tham gia vào email này. Người nhận cần có tài khoản để tham gia.
+                </AlertDescription>
               </Alert>
-            )}
-            <Button type="submit">Add Member</Button>
-          </form>
-        </DialogContent>
+              <div className="space-y-2">
+                <Label>Email người nhận</Label>
+                <Input 
+                  placeholder="example@gmail.com" 
+                  type="email" 
+                  required 
+                  value={inviteData.email}
+                  onChange={(e) => setInviteData({...inviteData, email: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Vai trò dự kiến</Label>
+                <Select onValueChange={(v) => setInviteData({...inviteData, role: v})} defaultValue={inviteData.role}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="member">Thành viên</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" variant="secondary" className="w-full">Gửi lời mời</Button>
+            </form>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
     </Dialog>
   )
 }

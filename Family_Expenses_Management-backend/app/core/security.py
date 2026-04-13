@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from app.core.config import settings
 from typing import Optional
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", truncate_error=False)
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"

@@ -118,20 +118,6 @@ export async function ForgotPassword(email: string) {
     return response
 }
 
-export async function CreateFamilyNames(familyName: string) {
-    await delay(500);
-    return { status: 201, data: { message: "Tạo gia đình thành công", name: familyName } };
-}
-
-export async function CreateCategories(category: string) {
-    await delay(300);
-    return { status: 201, data: { message: "Tạo danh mục thành công" } };
-}
-
-export async function AdminRegisterUser() {
-    await delay(500);
-    return { status: 201, data: { message: "Thêm thành viên thành công" } };
-}
 
 export async function Logout() {
     localStorage.removeItem("access_token");
@@ -152,10 +138,111 @@ export async function GetFamilyData() {
         } 
     };
 }
+// service/API.ts
 
+// service/API.ts
+
+export async function AdminRegisterUser(
+  username: string,
+  email: string,
+  password: string,
+  fullName: string,
+  specificRole: string,
+  role: string
+) {
+  const access_token = localStorage.getItem("access_token");
+  const params = new URLSearchParams();
+  
+  // Phải khớp chính xác key với Form(...) ở Backend
+  params.append('fullname', fullName); 
+  params.append('username', username);
+  params.append('email', email);
+  params.append('password', password);
+  params.append('role', role);
+  params.append('specific_role', specificRole);
+
+  return await axios.post(`${apiUrl}/users/add_members`, params, {
+    headers: {
+      'Authorization': `Bearer ${access_token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    }
+  });
+}
+
+// Thêm hàm xóa thành viên
+export async function deleteMemberApi(userId: string) {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.delete(`${apiUrl}/users/${userId}`, {
+        headers: {
+            'Authorization': `Bearer ${access_token}`
+        }
+    });
+}
+
+// service/API.ts
+
+// 1. LẤY DANH SÁCH DANH MỤC
+// Lưu ý: Backend đã đổi prefix thành /expense-categories (có s) 
+// và tự lọc theo token nên không cần truyền familyId vào URL nữa.
+export async function getCategories() {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.get(`${apiUrl}/expense-categories/`, {
+        headers: { 
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+        }
+    });
+}
+
+// 2. TẠO DANH MỤC MỚI
+export async function CreateCategories(categoryName: string) {
+    const access_token = localStorage.getItem("access_token");
+    const params = new URLSearchParams();
+    params.append('name', categoryName); // Backend dùng Form(...) nên phải dùng URLSearchParams
+
+    return await axios.post(`${apiUrl}/expense-categories/`, params, {
+        headers: { 
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded' 
+        }
+    });
+}
+
+// 3. CẬP NHẬT DANH MỤC
+export async function updateCategoryApi(id: string, newName: string) {
+    const access_token = localStorage.getItem("access_token");
+    const params = new URLSearchParams();
+    params.append('name', newName);
+
+    return await axios.put(`${apiUrl}/expense-categories/${id}`, params, {
+        headers: { 
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded' 
+        }
+    });
+}
+
+// 4. XÓA DANH MỤC
+export async function deleteCategoryApi(id: string) {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.delete(`${apiUrl}/expense-categories/${id}`, {
+        headers: { 
+            'Authorization': `Bearer ${access_token}` 
+        }
+    });
+}
 export async function getMemberFamily() {
-    await delay(300);
-    return { status: 200, data: mockMembers };
+    const access_token = localStorage.getItem("access_token")
+    const response = await axios.get(`
+    ${apiUrl}/users/family`,
+    {
+        headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${access_token}`,
+        }
+    })
+    return response
 }
 
 export async function getMemberData() {
@@ -182,30 +269,139 @@ export async function getMemberData() {
     };
 }
 
-export async function getBudgets() {
-    await delay(400);
-    return { 
-        status: 200, 
-        data: [
-            { id: 1, category_id: 1, amount: 10000000, month: "10", year: "2023" }
-        ] 
+
+// Helper để lấy token
+const getAuthHeader = () => {
+    const token = localStorage.getItem("access_token");
+    return {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
     };
+};
+
+
+export async function CreateFamilyNames(familyName: string) {
+    return await axios.post(`${apiUrl}/family/create`, // Thêm /create vào đây
+        new URLSearchParams({ name: familyName }), // Backend đang dùng Form(...)
+        { 
+            headers: {
+                ...getAuthHeader(),
+                'Content-Type': 'application/x-www-form-urlencoded' 
+            } 
+        }
+    );
 }
 
+// 4. GET EXPENSES (Lấy từ DB thật)
 export async function getExpenses() {
-    await delay(400);
-    return { status: 200, data: mockExpenses };
+    const familyId = localStorage.getItem("family_id");
+    return await axios.get(`${apiUrl}/expense/family/${familyId}`, {
+        headers: getAuthHeader()
+    });
+}
+export async function ActivateAccount(token: string) {
+    return await axios.get(`${apiUrl}/auth/activate?token=${token}`, {
+        headers: { 'Accept': 'application/json' }
+    });
 }
 
-export async function createNewExpenses() {
-    await delay(300);
-    return { status: 201, data: { message: "Đã thêm chi tiêu" } };
+export async function updateMemberApi(userId: string, updateData: { fullname?: string, role?: string, specific_role?: string }) {
+    const access_token = localStorage.getItem("access_token");
+    const params = new URLSearchParams();
+    if (updateData.fullname) params.append('fullname', updateData.fullname);
+    if (updateData.role) params.append('role', updateData.role);
+    if (updateData.specific_role) params.append('specific_role', updateData.specific_role);
+
+    return await axios.put(`${apiUrl}/users/${userId}`, params, {
+        headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+    });
+}
+export async function GetMe() {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.get(`${apiUrl}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+    });
 }
 
-export async function getCategories() {
-    await delay(300);
-    return { status: 200, data: mockCategories };
+export async function GetFamilyDetail() {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.get(`${apiUrl}/family/detail`, {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+    });
 }
+
+// Rời khỏi gia đình (Dành cho thành viên)
+export async function LeaveFamily() {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.post(`${apiUrl}/family/leave`, {}, {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+}
+export async function AcceptFamilyInvite(token: string) {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.post(`${apiUrl}/users/accept-invite`, 
+        new URLSearchParams({ token: token }), 
+        {
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }
+    );
+}
+// 5. GET BUDGETS
+export async function getBudgets() {
+    const familyId = localStorage.getItem("family_id");
+    // Giả sử backend có endpoint lấy budget theo family
+    return await axios.get(`${apiUrl}/budget/family/${familyId}`, {
+        headers: getAuthHeader()
+    });
+}
+export async function acceptInviteApi(token: string) {
+    const access_token = localStorage.getItem("access_token");
+    return await axios.post(`${apiUrl}/users/accept-invite`, 
+        new URLSearchParams({ token: token }), 
+        {
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }
+    );
+}
+export async function inviteMemberViaEmail (email: string, role: string) {
+    const access_token = localStorage.getItem("access_token");
+    const params = new URLSearchParams();
+    params.append('email', email);
+    params.append('role', role);
+
+    return await axios.post(`${apiUrl}/users/invite_only`, params, {
+        headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+    });
+}
+
+// 6. CREATE EXPENSE (Thêm chi tiêu mới)
+export async function createNewExpenses(expenseData: any) {
+    return await axios.post(`${apiUrl}/expense/`, expenseData, {
+        headers: getAuthHeader()
+    });
+}
+
+// 7. DELETE EXPENSE
+export async function deleteExpense(id: string) {
+    return await axios.delete(`${apiUrl}/expense/${id}`, {
+        headers: getAuthHeader()
+    });
+}
+
+
+
 
 export async function updateExpense() {
     await delay(300);
@@ -222,10 +418,7 @@ export async function adminAddBudget() {
     return { status: 201, data: { message: "Thêm ngân sách thành công" } };
 }
 
-export async function deleteExpense() {
-    await delay(300);
-    return { status: 200, data: { message: "Xóa thành công" } };
-}
+
 
 export async function UpdateBudget() {
     await delay(300);

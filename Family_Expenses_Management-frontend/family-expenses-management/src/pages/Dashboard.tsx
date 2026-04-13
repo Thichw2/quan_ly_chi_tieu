@@ -84,6 +84,16 @@ export default function Dashboard() {
       }));
     }
   }, [selectedMember, memberData, categoryData]);
+ // Utility functions
+  const isDataEmpty = (data: FamilyData): boolean => {
+    return (
+      data.totalBudget === 0 &&
+      data.totalSpent === 0 &&
+      data.categoryData.length === 0 &&
+      data.memberData.length === 0 &&
+      data.recentExpenses.length === 0
+    );
+  };
 
   // Data fetching
   const fetchData = async () => {
@@ -116,17 +126,7 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // Utility functions
-  const isDataEmpty = (data: FamilyData): boolean => {
-    return (
-      data.totalBudget === 0 &&
-      data.totalSpent === 0 &&
-      data.categoryData.length === 0 &&
-      data.memberData.length === 0 &&
-      data.recentExpenses.length === 0
-    );
-  };
-
+ 
   const navigate = useNavigate();
   const handleDialogAction = () => navigate('/settings');
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];

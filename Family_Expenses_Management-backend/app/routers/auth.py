@@ -2,12 +2,12 @@ import random
 import string
 from fastapi import APIRouter, HTTPException, status, Depends, Form
 from jose import JWTError, jwt
-from app.core.utils import get_current_user, oauth2_scheme, send_verify_email # Import hàm gửi mail mới
+from app.core.utils import get_current_user, oauth2_scheme, send_verify_email, send_reset_email # Import hàm gửi mail mới
 from app.core.security import hash_password, verify_password, create_access_token
 from app.db import users_collection, token_blacklist_collection
 from app.models.user import User
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.core.config import settings
 
 router = APIRouter(
@@ -138,36 +138,55 @@ async def logout(token: str = Depends(oauth2_scheme)):
 async def forget_password(email: str = Form(...)):
     user = await users_collection.find_one({"email": email})
     if not user:
-        raise HTTPException(status_code=404, detail="User with this email does not exist")
+        raise HTTPException(status_code=404, detail="Email không tồn tại trong hệ thống")
     
-    new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-    hashed_password = hash_password(new_password)
+    # 1. Tạo token reset mật khẩu (hết hạn sau 15 phút)
+    # Thêm action: reset_password để phân biệt với access_token thông thường
+    token_data = {
+        "sub": str(user["_id"]),
+        "action": "reset_password",
+        "exp": datetime.utcnow() + timedelta(minutes=15)
+    }
+    reset_token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
     
-    await users_collection.update_one(
-        {"_id": user["_id"]},
-        {"$set": {"password": hashed_password}}
-    )
+    # 2. Tạo link reset (Trỏ về URL Frontend của bạn)
+    # Giả sử frontend chạy ở localhost:5173
+    reset_link = f"http://localhost:5173/reset-password?token={reset_token}"
     
-    # Bạn có thể cập nhật hàm send_email trong utils để dùng fastapi-mail cho đồng bộ
-    # Ở đây tạm dùng hàm send_email cũ của bạn
-    subject = "Reset Password"
-    body = f"Mật khẩu mới của bạn là: {new_password}"
-    # send_email(email, subject, body) 
+    # 3. Gửi mail (Cần cập nhật hàm send_reset_email trong utils của bạn)
+    try:
+        # Bạn hãy tạo hàm này trong app.core.utils nhé
+        await send_reset_email(email, reset_link)
+    except Exception as e:
+        print(f"Mail error: {e}")
+        raise HTTPException(status_code=500, detail="Không thể gửi email lúc này.")
     
-    return {"message": "New password sent to email."}
+    return {"message": "Link đặt lại mật khẩu đã được gửi vào Email của bạn."}
 
-@router.put("/change-password")
-async def change_password(
-    current_password: str = Form(...),
-    new_password: str = Form(...),
-    current_user: User = Depends(get_current_user)
+@router.post("/reset-password")
+async def reset_password_confirm(
+    token: str = Form(...),
+    new_password: str = Form(...)
 ):
-    user_doc = await users_collection.find_one({"_id": ObjectId(current_user.id)})
-    if not verify_password(current_password, user_doc["password"]):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    
-    await users_collection.update_one(
-        {"_id": ObjectId(current_user.id)},
-        {"$set": {"password": hash_password(new_password)}}
-    )
-    return {"message": "Password updated successfully"}
+    try:
+        # 1. Giải mã và kiểm tra token
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("action") != "reset_password":
+            raise HTTPException(status_code=400, detail="Token không hợp lệ")
+            
+        user_id = payload.get("sub")
+        
+        # 2. Update mật khẩu mới
+        hashed_pwd = hash_password(new_password)
+        result = await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"password": hashed_pwd}}
+        )
+        
+        if result.modified_count == 0:
+             raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+
+        return {"message": "Mật khẩu đã được cập nhật thành công."}
+        
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Link đã hết hạn hoặc không hợp lệ.")

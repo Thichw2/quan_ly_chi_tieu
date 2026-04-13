@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import VerifyEmail from './pages/VerifyEmail';
 import { Toaster } from './components/ui/toaster';
+import AcceptInvitePage from './components/setting/AcceptInvite';
+import ResetPassword from './pages/ResetPassword';
 function CreateFamilyDialog() {
   const navigate = useNavigate();
   const family_id = localStorage.getItem('family_id');
@@ -61,7 +63,7 @@ function AppContent() {
   const access_token = localStorage.getItem('access_token');
 
   useEffect(() => {
-    const publicPaths = ['/login', '/register' , '/verify-email'];
+    const publicPaths = ['/login', '/register' , '/verify-email', '/reset-password'];
     const currentPath = window.location.pathname;
     const isPublicPath = publicPaths.some(path => currentPath.includes(path));
 
@@ -77,6 +79,7 @@ function AppContent() {
     <>
       <CreateFamilyDialog />
       <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} /> {/* Thêm dòng này */}
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -86,6 +89,7 @@ function AppContent() {
         <Route path="/expenses" element={<RootLayout><Expenses /></RootLayout>} />
         <Route path="/reports" element={<RootLayout><Reports /></RootLayout>} />
         <Route path="/settings" element={<RootLayout><Settings /></RootLayout>} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
       </Routes>
     </>
   );
