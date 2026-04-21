@@ -257,3 +257,26 @@ async def delete_budget(budget_id: str, current_user: User = Depends(get_current
     
     return
 
+@router.get("/history", response_model=List[BudgetOut])
+async def get_budget_history(current_user: User = Depends(get_current_user)):
+    """
+    Lấy toàn bộ lịch sử cấp ngân sách của gia đình (Sắp xếp mới nhất lên đầu)
+    """
+    family_id_str = str(current_user.family_id)
+    budgets = []
+
+    # Sắp xếp theo năm và tháng giảm dần
+    async for b in budgets_collection.find({"family_id": family_id_str}).sort([("year", -1), ("month", -1)]):
+        b["_id"] = str(b["_id"])
+        
+        # Lấy tên danh mục
+        cat = await expense_categories_collection.find_one({"_id": ObjectId(b["category_id"])})
+        b["category_name"] = cat.get("name") if cat else "N/A"
+        
+        # Lấy tên người được cấp
+        user = await users_collection.find_one({"_id": ObjectId(b["user_id"])})
+        b["fullname"] = user.get("fullname") if user else "N/A"
+        
+        budgets.append(b)
+        
+    return budgets

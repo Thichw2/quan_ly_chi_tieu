@@ -1,6 +1,6 @@
 'use client'
 
-import { useNavigate, useLocation } from 'react-router-dom' // Import useNavigate và useLocation từ react-router-dom
+import { useNavigate, useLocation } from 'react-router-dom'
 import UserMenu from './UserMenu'
 
 import {
@@ -16,39 +16,52 @@ const Navbar = () => {
   const navigate = useNavigate() 
   const location = useLocation() 
 
+  // Hàm chuyển đổi đường dẫn sang tên hiển thị tiếng Việt
   const getBreadcrumbName = () => {
     switch (location.pathname) {
-        case '/':
-            return 'Dashboard'
-        case '/expenses':
-            return 'Expenses'
-        case '/budget':
-            return 'Budget'
-        case '/expenses':
-            return 'Expenses'
-        case '/reports':
-            return 'Report'
-        default:
-            return 'Settings'
+      case '/':
+        return 'Tổng quan'
+      case '/expenses':
+        return 'Chi tiêu'
+      case '/budget':
+        return 'Ngân sách'
+      case '/reports':
+        return 'Báo cáo'
+      case '/family':
+        return 'Quản lý gia đình'
+      default:
+        return 'Trang chủ'
     }
   }
 
   return (
-    <nav className="">
+    <nav className="border-b bg-background">
       <div className="flex h-16 items-center px-4">
         <div className="flex-1">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/" onClick={() => navigate('/')}>Home</BreadcrumbLink> {/* Sử dụng navigate khi click vào Home */}
+                {/* Chuyển Home thành Trang chủ */}
+                <BreadcrumbLink 
+                  href="/" 
+                  onClick={(e) => {
+                    e.preventDefault(); // Ngăn chặn load lại trang
+                    navigate('/');
+                  }}
+                >
+                  Trang chủ
+                </BreadcrumbLink>
               </BreadcrumbItem>
+              
               <BreadcrumbSeparator />
+              
               <BreadcrumbItem>
-                <BreadcrumbPage>{getBreadcrumbName()}</BreadcrumbPage> {/* Hiển thị tên breadcrumb tương ứng */}
+                <BreadcrumbPage>{getBreadcrumbName()}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
+
         <div className="flex items-center space-x-4">
           <UserMenu />
         </div>

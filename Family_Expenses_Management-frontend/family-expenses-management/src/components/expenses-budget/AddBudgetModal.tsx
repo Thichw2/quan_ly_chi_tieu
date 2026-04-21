@@ -50,19 +50,19 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
       await RequestBudget(category, period, amount)
       fetchBudgets()
       toast({
-        title: "Tạo yêu cầu budget thành công!",
-        })
-    }catch (e: unknown) {
+        title: "Gửi yêu cầu ngân sách thành công!",
+      })
+    } catch (e: unknown) {
       if (e instanceof AxiosError) {
-          toast({
+        toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-          });
+          title: "Đã xảy ra lỗi!",
+          description: e.response?.data?.detail || "Lỗi không xác định",
+        });
       } else {
-          console.error("An unexpected error occurred:", e);
+        console.error("An unexpected error occurred:", e);
       }
-  }
+    }
   }
 
   useEffect(() => {
@@ -77,22 +77,22 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
 
   const handleAdminAddBudget = async () => {
     try {
-      adminAddBudget(category, amount, period, memberId)
+      await adminAddBudget(category, amount, period, memberId)
       fetchBudgets()
       toast({
-        title: "Tạo budget thành công!",
-        })
+        title: "Thiết lập ngân sách thành công!",
+      })
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
-          toast({
+        toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-          });
+          title: "Đã xảy ra lỗi!",
+          description: e.response?.data?.detail || "Lỗi không xác định",
+        });
       } else {
-          console.error("An unexpected error occurred:", e);
+        console.error("An unexpected error occurred:", e);
       }
-  }
+    }
   }
 
   const fetchFamilyMembers = async () => {
@@ -111,14 +111,14 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
     try {
       const data = await getCategories()
       setCategories(data.data)
-      } catch (e) {
-          console.log(e)
-      }
+    } catch (e) {
+      console.log(e)
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if(isAdmin) {
+    if (isAdmin) {
       handleAdminAddBudget()
     } else {
       handleRequestBudget()
@@ -134,26 +134,32 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[605px]">
         <DialogHeader>
-          <DialogTitle>{isAdmin ? 'Set New Budget' : 'Request New Budget'}</DialogTitle>
+          <DialogTitle>
+            {isAdmin ? 'Thiết lập ngân sách mới' : 'Gửi yêu cầu ngân sách mới'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            {/* Số tiền */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="amount" className="text-right">
-                Amount
+                Số tiền
               </Label>
               <Input
                 id="amount"
                 type="number"
+                placeholder="0"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="col-span-3"
                 required
               />
             </div>
+
+            {/* Danh mục */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="category" className="text-right">
-                Category
+                Danh mục
               </Label>
               <Select 
                 value={categories.find(cat => cat._id === category)?.name || ''} 
@@ -162,7 +168,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
                   setCategory(selectedCat?._id as string);
                 }}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Chọn danh mục" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -173,9 +179,11 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Thời gian */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="period" className="text-right">
-                Period
+                Tháng
               </Label>
               <Input
                 id="period"
@@ -186,10 +194,12 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
                 required
               />
             </div>
+
+            {/* Thành viên gia đình (Chỉ dành cho Admin) */}
             {isAdmin && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="member" className="text-right">
-                  Family Member
+                  Thành viên
                 </Label>
                 <Select 
                   value={familyMembers.find(member => member.id === memberId)?.name || ''} 
@@ -198,7 +208,7 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
                     setMemberId(selectedMember?.id as string);
                   }}>
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select family member" />
+                    <SelectValue placeholder="Chọn thành viên gia đình" />
                   </SelectTrigger>
                   <SelectContent>
                     {familyMembers.map((member) => (
@@ -211,8 +221,11 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
               </div>
             )}
           </div>
+          
           <DialogFooter>
-            <Button type="submit">{isAdmin ? 'Set Budget' : 'Request Budget'}</Button>
+            <Button type="submit">
+              {isAdmin ? 'Thiết lập ngay' : 'Gửi yêu cầu'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -221,4 +234,3 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
 };
 
 export default AddBudgetModal;
-

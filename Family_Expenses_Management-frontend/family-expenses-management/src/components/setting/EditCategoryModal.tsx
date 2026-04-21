@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { updateCategoy } from '@/service/API'
+import { updateCategoryApi } from '@/service/API'
 import { useToast } from '@/hooks/use-toast'
 import { AxiosError } from 'axios'
 
@@ -25,7 +25,7 @@ export const EditCategoryModal = ({ category, isOpen, onClose,  fetchCategories 
   const { toast } = useToast()
     const handleUpdateCategory = async () => {
         try {
-            await updateCategoy(category._id, editedCategory.name)
+            await updateCategoryApi(category._id, editedCategory.name)
             toast({
                 title: "Sửa danh mục thành công!",
                 })

@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react';
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -44,7 +46,7 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
         amount: parseFloat(amount)
       });
       
-      // Clear just this category's amount
+      // Xóa số tiền chỉ cho danh mục này sau khi thiết lập
       setAmounts(prev => ({
         ...prev,
         [categoryId]: ''
@@ -55,16 +57,16 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
   const handleNextMember = () => {
     if (currentMemberIndex < members.length - 1) {
       setCurrentMemberIndex(currentMemberIndex + 1);
-      setAmounts({}); // Clear all amounts for next member
+      setAmounts({}); // Xóa tất cả các số tiền tạm nhập cho thành viên tiếp theo
     }
   };
 
   if (members.length === 0) {
-    return <div>No family members added yet.</div>;
+    return <div className="p-4 text-center text-gray-500">Chưa có thành viên gia đình nào được thêm.</div>;
   }
 
   if (currentMemberIndex >= members.length) {
-    return <div>All budgets set successfully!</div>;
+    return <div className="p-4 text-center text-green-600 font-bold">Tất cả ngân sách đã được thiết lập thành công!</div>;
   }
 
   const currentMember = members[currentMemberIndex];
@@ -73,8 +75,10 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold">Set Budget for {currentMember.name}</h3>
-        <Button onClick={handleNextMember}>Next Member</Button>
+        <h3 className="text-xl font-semibold">Thiết lập ngân sách cho: {currentMember.name}</h3>
+        <Button onClick={handleNextMember} variant="outline">
+          Thành viên tiếp theo
+        </Button>
       </div>
 
       <div className="grid gap-4">
@@ -86,10 +90,12 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`budget-${category.id}`}>{category.name}</Label>
+                    <Label htmlFor={`budget-${category.id}`} className="font-medium">
+                      {category.name}
+                    </Label>
                     {existingBudget && (
-                      <span className="text-sm text-gray-500">
-                        Current: ${existingBudget.amount}
+                      <span className="text-sm text-blue-600">
+                        Hiện tại: {existingBudget.amount.toLocaleString('vi-VN')} VNĐ
                       </span>
                     )}
                   </div>
@@ -97,7 +103,7 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
                     <Input
                       id={`budget-${category.id}`}
                       type="number"
-                      placeholder="Enter budget amount (optional)"
+                      placeholder="Nhập số tiền ngân sách..."
                       value={amounts[category.id] || ''}
                       onChange={(e) => setAmounts(prev => ({
                         ...prev,
@@ -108,7 +114,7 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
                       onClick={() => handleSetBudget(category.id)}
                       disabled={!amounts[category.id]}
                     >
-                      Set
+                      Thiết lập
                     </Button>
                   </div>
                 </div>
@@ -118,18 +124,19 @@ export default function CreateBudgets({ members, categories, budgets, setBudget 
         })}
       </div>
 
-      <div className="mt-6">
-        <h4 className="font-semibold mb-2">Current Budgets for {currentMember.name}:</h4>
+      <div className="mt-6 border-t pt-4">
+        <h4 className="font-semibold mb-2">Danh sách ngân sách của {currentMember.name}:</h4>
         {memberBudgets.length > 0 ? (
           <ul className="space-y-2">
             {memberBudgets.map((budget) => (
-              <li key={`${budget.memberId}-${budget.categoryId}`}>
-                {categories.find(c => c.id === budget.categoryId)?.name}: ${budget.amount}
+              <li key={`${budget.memberId}-${budget.categoryId}`} className="flex justify-between bg-gray-50 p-2 rounded">
+                <span>{categories.find(c => c.id === budget.categoryId)?.name}</span>
+                <span className="font-bold">{budget.amount.toLocaleString('vi-VN')} VNĐ</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500">No budgets set yet</p>
+          <p className="text-gray-500 italic">Chưa có ngân sách nào được thiết lập</p>
         )}
       </div>
     </div>

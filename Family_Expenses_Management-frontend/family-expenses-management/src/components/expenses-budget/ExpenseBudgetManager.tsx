@@ -19,10 +19,11 @@ interface Budget {
   month: string;
   user_id?: string;
   fullname?: string;
-  category_id: string
-  year: string
+  category_id: string;
+  year: string;
   status?: 'approved' | 'pending' | 'rejected';
 }
+
 interface BudgetRequest {
   _id: string;
   requested_amount: string;
@@ -30,200 +31,176 @@ interface BudgetRequest {
   month: string;
   user_id?: string;
   fullname?: string;
-  category_id: string
-  year: string
+  category_id: string;
+  year: string;
   status?: 'approved' | 'pending' | 'rejected';
 }
 
-interface BudgetManagementProps{
-  getBudget: (budget: Budget[]) => void
+interface BudgetManagementProps {
+  getBudget: (budget: Budget[]) => void;
 }
 
-const BudgetManagement: React.FC<BudgetManagementProps> = ({
-  getBudget
-}) => {
-  const { toast } = useToast()
+const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
+  const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [deletingBudget, setDeletingBudget] = useState<Budget | null>(null);
-  const [bugetPending, setBudgetPending] = useState<BudgetRequest[]>([])
-  const [isLoading ,setIsLoading] = useState<boolean>(false)
+  const [bugetPending, setBudgetPending] = useState<BudgetRequest[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   const handleDeleteBudget = async (budgetId: string) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      await deleteBudget(budgetId)
-      fetchBudgets()
-      toast({
-        title: "Xóa budget thành công!",
-        })
+      await deleteBudget(budgetId);
+      fetchBudgets();
+      toast({ title: "Xóa ngân sách thành công!" });
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
-          toast({
+        toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-          });
-      } else {
-          console.error("An unexpected error occurred:", e);
+          title: "Đã xảy ra lỗi",
+          description: e.response?.data?.detail || "Lỗi không xác định",
+        });
       }
-  }
-  setIsLoading(false)
-}
+    }
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     const adminStatus = localStorage.getItem('isAdmin') === 'true';
     setIsAdmin(adminStatus);
     fetchBudgets();
-    getBudgetPending()
+    getBudgetPending();
   }, []);
 
   const getBudgetPending = async () => {
     try {
-      const data = await BugetPending()
-      setBudgetPending(data.data)
+      const data = await BugetPending();
+      setBudgetPending(data.data);
     } catch (e) {
-      console.log(e)
+      console.log(e);
     }
-  }
+  };
 
   const fetchBudgets = async () => {
     try {
-      const data = await getBudgets()
+      const data = await getBudgets();
       setBudgets(data.data);
-      getBudget(data.data)
+      getBudget(data.data);
     } catch (error) {
-      console.error('Error fetching budgets:', error);
+      console.error('Lỗi khi tải danh sách ngân sách:', error);
     }
   };
 
-
   const handleApprove = async (id: string) => {
-      setIsLoading(true)
-    toast({
-      title: "Loading to approve",
-      })
+    setIsLoading(true);
+    toast({ title: "Đang xử lý phê duyệt..." });
     try {
       await ApproveBudget(id);
-      toast({
-        title: "Đã chấp nhận thành công khoản budget xin thêm",
-        })
+      toast({ title: "Đã phê duyệt yêu cầu ngân sách thành công" });
+      fetchBudgets();
+      getBudgetPending();
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
-          toast({
+        toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-          });
-      } else {
-          console.error("An unexpected error occurred:", e);
+          title: "Không thể phê duyệt",
+          description: e.response?.data?.detail || "Lỗi hệ thống",
+        });
       }
-      fetchBudgets()
-      getBudgetPending()
-  }
-  setIsLoading(false)
-};
+    }
+    setIsLoading(false);
+  };
 
   const handleReject = async (id: string) => {
-    setIsLoading(true)
-    toast({
-      title: "Loading to reject",
-      })
+    setIsLoading(true);
+    toast({ title: "Đang từ chối yêu cầu..." });
     try {
       await RejectBudget(id);
-      toast({
-        title: "Đã Từ chối khoản budget xin thêm",
-        })
+      toast({ title: "Đã từ chối yêu cầu ngân sách" });
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
-          toast({
+        toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
-          });
-      } else {
-          console.error("An unexpected error occurred:", e);
+          title: "Có lỗi xảy ra",
+          description: e.response?.data?.detail || "Lỗi hệ thống",
+        });
       }
     }
     setTimeout(() => {
-      fetchBudgets()
-      getBudgetPending()
-    },3000)
-    setIsLoading(false)
+      fetchBudgets();
+      getBudgetPending();
+    }, 1000);
+    setIsLoading(false);
   };
 
-
-
+  const translateStatus = (status?: string) => {
+    switch (status) {
+      case 'approved': return <span className="text-green-600 font-medium">Đã duyệt</span>;
+      case 'pending': return <span className="text-yellow-600 font-medium">Chờ duyệt</span>;
+      case 'rejected': return <span className="text-red-600 font-medium">Từ chối</span>;
+      default: return status;
+    }
+  };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{isAdmin ? 'Budget Management' : 'My Budgets'}</CardTitle>
+        <CardTitle>{isAdmin ? 'Quản lý ngân sách' : 'Ngân sách của tôi'}</CardTitle>
         <Button disabled={isLoading} onClick={() => setIsAddModalOpen(true)}>
-          {isAdmin ? 'Add Budget' : 'Request Budget'}
+          {isAdmin ? 'Thêm ngân sách' : 'Yêu cầu ngân sách'}
         </Button>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Amount</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Month</TableHead>
-              {isAdmin && <TableHead>Member</TableHead>}
-              {isAdmin && <TableHead>Actions</TableHead>}
-              {isAdmin && <TableHead>Status</TableHead>}
+              <TableHead>Số tiền</TableHead>
+              <TableHead>Danh mục</TableHead>
+              <TableHead>Tháng</TableHead>
+              {isAdmin && <TableHead>Thành viên</TableHead>}
+              {isAdmin && <TableHead>Thao tác</TableHead>}
+              {isAdmin && <TableHead>Trạng thái</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            
-            {
-              isAdmin && bugetPending.map((budget, index) => (
-                <TableRow key={index}>
-                  <TableCell>{budget.requested_amount}</TableCell>
-                  <TableCell>{budget.category_name}</TableCell>
-                  <TableCell>{budget.month}</TableCell>
-                  {isAdmin && <TableCell>{budget.fullname}</TableCell>}
-                  {isAdmin && (
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        {budget.status === 'pending' && (
-                          <>
-                            <Button disabled={isLoading} onClick={() => handleApprove(budget._id)} size="sm">
-                              Approve
-                            </Button>
-                            <Button disabled={isLoading} onClick={() => handleReject(budget._id)} variant="destructive" size="sm">
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-                  {isAdmin && <TableCell>{budget.status}</TableCell>}
+            {/* Yêu cầu đang chờ duyệt (Chỉ cho Admin) */}
+            {isAdmin && bugetPending.map((budget, index) => (
+              <TableRow key={`pending-${index}`} className="bg-yellow-50/50">
+                <TableCell className="font-bold text-yellow-700">{budget.requested_amount}</TableCell>
+                <TableCell>{budget.category_name}</TableCell>
+                <TableCell>{budget.month}</TableCell>
+                <TableCell>{budget.fullname}</TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    {budget.status === 'pending' && (
+                      <>
+                        <Button disabled={isLoading} onClick={() => handleApprove(budget._id)} size="sm" className="bg-green-600 hover:bg-green-700">
+                          Duyệt
+                        </Button>
+                        <Button disabled={isLoading} onClick={() => handleReject(budget._id)} variant="destructive" size="sm">
+                          Từ chối
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>{translateStatus(budget.status)}</TableCell>
+              </TableRow>
+            ))}
 
-                </TableRow>
-              ))
-            }
+            {/* Danh sách ngân sách chính thức */}
             {budgets.map((budget, index) => (
-              <TableRow key={index}>
-                <TableCell>{budget.amount}</TableCell>
+              <TableRow key={`budget-${index}`}>
+                <TableCell className="font-medium">{budget.amount}</TableCell>
                 <TableCell>{budget.category_name}</TableCell>
                 <TableCell>{budget.month}</TableCell>
                 {isAdmin && <TableCell>{budget.fullname}</TableCell>}
                 {isAdmin && (
                   <TableCell>
                     <div className="flex space-x-2">
-                      {budget.status === 'pending' && (
-                        <>
-                          <Button disabled={isLoading} onClick={() => handleApprove(budget._id)} size="sm">
-                            Approve
-                          </Button>
-                          <Button disabled={isLoading} onClick={() => handleReject(budget._id)} variant="destructive" size="sm">
-                            Reject
-                          </Button>
-                        </>
-                      )}
                       <Button disabled={isLoading} onClick={() => setEditingBudget(budget)} variant="outline" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -233,13 +210,13 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({
                     </div>
                   </TableCell>
                 )}
-                {isAdmin && <TableCell>{budget.status}</TableCell>}
-
+                {isAdmin && <TableCell>{translateStatus(budget.status)}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
       <AddBudgetModal
         fetchBudgets={fetchBudgets}
         isOpen={isAddModalOpen}
@@ -247,8 +224,8 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({
       />
       {editingBudget && (
         <EditBudgetModal
-        fetchBudgets={fetchBudgets}
-        budget={editingBudget}
+          fetchBudgets={fetchBudgets}
+          budget={editingBudget}
           isOpen={!!editingBudget}
           onClose={() => setEditingBudget(null)}
         />

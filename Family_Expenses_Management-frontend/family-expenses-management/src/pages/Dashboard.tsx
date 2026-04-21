@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, ShoppingCart, Users, AlertTriangle } from 'lucide-react'
+import { ShoppingCart, Users, AlertTriangle, BadgeDollarSign } from 'lucide-react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Skeleton } from "@/components/ui/skeleton"
 import { GetFamilyData, getMemberData } from '@/service/API'
 import { FamilyData } from '@/config/types'
 import { useNavigate } from 'react-router-dom'
-import { EuroIcon } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +24,7 @@ import {
 type MemberDataMap = Record<string, FamilyData>;
 
 export default function Dashboard() {
-  // Base states
+  // Trạng thái cơ bản
   const [familyData, setFamilyData] = useState<FamilyData>({
     totalBudget: 0,
     totalSpent: 0,
@@ -38,7 +37,9 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showEmptyDataDialog, setShowEmptyDataDialog] = useState(false);
   
-  // Derived states using the current view data
+  const navigate = useNavigate();
+
+  // Dữ liệu hiển thị dựa trên thành viên được chọn
   const currentData = useMemo(() => {
     if (selectedMember === 'Family') {
       return familyData;
@@ -46,45 +47,42 @@ export default function Dashboard() {
     return memberData[selectedMember] || familyData;
   }, [selectedMember, familyData, memberData]);
 
-  // Computed values from current data
   const totalBudget = currentData.totalBudget;
   const totalSpent = currentData.totalSpent;
   const remainingBudget = totalBudget - totalSpent;
   const categoryData = currentData.categoryData;
   const recentExpenses = currentData.recentExpenses;
 
-  // Calculate top category stats
+  // Thống kê danh mục chi tiêu nhiều nhất
   const topCategoryStats = useMemo(() => {
     if (!categoryData.length) return { name: 'N/A', percentage: '0' };
     
     const totalValue = categoryData.reduce((sum, cat) => sum + cat.value, 0);
-    const maxCategory = categoryData.reduce((prev, curr) => 
-      curr.value > prev.value ? curr : prev
-    );
+    const maxCategory = categoryData.length > 0 
+      ? categoryData.reduce((prev, curr) => curr.value > prev.value ? curr : prev)
+      : { name: 'N/A', value: 0 };
     
     return {
       name: maxCategory.name,
-      percentage: ((maxCategory.value / totalValue) * 100).toFixed(2)
+      percentage: ((maxCategory.value / totalValue) * 100).toFixed(1)
     };
   }, [categoryData]);
 
-  // Bar chart data preparation
+  // Chuẩn bị dữ liệu cho biểu đồ cột
   const barChartData = useMemo(() => {
     if (selectedMember === 'Family') {
-      // Transform member data for comparison
       return Object.entries(memberData).map(([name, data]) => ({
         name,
         amount: data.totalSpent
       }));
     } else {
-      // Use category data for breakdown
       return categoryData.map(category => ({
         name: category.name,
         value: category.value
       }));
     }
   }, [selectedMember, memberData, categoryData]);
- // Utility functions
+
   const isDataEmpty = (data: FamilyData): boolean => {
     return (
       data.totalBudget === 0 &&
@@ -95,7 +93,6 @@ export default function Dashboard() {
     );
   };
 
-  // Data fetching
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -104,47 +101,50 @@ export default function Dashboard() {
         getMemberData()
       ]);
 
-      const familyData = familyResponse.data;
-      const memberData = memberResponse.data.members;
+      const fData = familyResponse.data;
+      const mData = memberResponse.data.members;
 
-      if (isDataEmpty(familyData)) {
+      if (isDataEmpty(fData)) {
         setShowEmptyDataDialog(true);
       }
 
-      setFamilyData(familyData);
-      setMemberData(memberData);
+      setFamilyData(fData);
+      setMemberData(mData);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      // Consider adding error state and UI handling
+      console.error('Lỗi khi tải dữ liệu:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initial data load
   useEffect(() => {
     fetchData();
   }, []);
 
- 
-  const navigate = useNavigate();
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(amount);
+  };
+
   const handleDialogAction = () => navigate('/settings');
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   return (
-    <div className="h-full max-h-[calc(100vh-64px)] overflow-y-auto overflow-x-hidden bg-gray-100">
-      <main className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Family Budget Dashboard</h1>
+    <div className="h-full max-h-[calc(100vh-64px)] overflow-y-auto overflow-x-hidden bg-slate-50">
+      <main className="container mx-auto p-4 lg:p-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Bảng điều khiển gia đình</h1>
           <Select 
             onValueChange={(value) => setSelectedMember(value as 'Family' | keyof MemberDataMap)} 
             defaultValue="Family"
           >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select member" />
+            <SelectTrigger className="w-[220px] bg-white shadow-sm">
+              <SelectValue placeholder="Chọn thành viên" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Family">Entire Family</SelectItem>
+              <SelectItem value="Family">Cả gia đình</SelectItem>
               {Object.keys(memberData).map((memberKey) => (
                 <SelectItem value={memberKey} key={memberKey}>
                   {memberKey}
@@ -154,60 +154,57 @@ export default function Dashboard() {
           </Select>
         </div>
 
-        {/* Stats Cards */}
+        {/* Thẻ thống kê */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Total Spent Card */}
-          <Card>
+          <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Tổng đã chi</CardTitle>
+              <BadgeDollarSign className="h-4 w-4 text-rose-500" />
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="space-y-2">
-                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-24" />
                   <Skeleton className="h-4 w-32" />
                 </div>
               ) : (
                 <>
-                  <div className="text-2xl font-bold">${totalSpent.toFixed(2)}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedMember === 'Family' ? 'Family total' : `${selectedMember}'s spending`}
+                  <div className="text-2xl font-bold text-slate-900">{formatCurrency(totalSpent)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedMember === 'Family' ? 'Tổng chi tiêu cả nhà' : `Chi tiêu của ${selectedMember}`}
                   </p>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Budget Remaining Card */}
-          <Card>
+          <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Budget Remaining</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Ngân sách còn lại</CardTitle>
+              <Users className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="space-y-2">
-                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-24" />
                   <Skeleton className="h-4 w-full" />
                 </div>
               ) : (
                 <>
-                  <div className="text-2xl font-bold">${remainingBudget.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-slate-900">{formatCurrency(remainingBudget)}</div>
                   <Progress
-                    value={(remainingBudget / totalBudget) * 100}
-                    className="mt-2"
+                    value={totalBudget > 0 ? (remainingBudget / totalBudget) * 100 : 0}
+                    className="mt-3 h-2"
                   />
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Top Category Card */}
-          <Card>
+          <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Top Category</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Chi nhiều nhất</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -217,9 +214,9 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="text-2xl font-bold">{topCategoryStats.name}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {topCategoryStats.percentage}% of total expenses
+                  <div className="text-2xl font-bold text-slate-900">{topCategoryStats.name}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Chiếm {topCategoryStats.percentage}% tổng chi tiêu
                   </p>
                 </>
               )}
@@ -227,17 +224,16 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          {/* Pie Chart */}
-          <Card>
+        {/* Biểu đồ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle>Expense Distribution</CardTitle>
+              <CardTitle className="text-lg">Phân bổ chi tiêu</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="flex items-center justify-center h-72">
-                  <Skeleton className="h-64 w-64 rounded-full" />
+                  <Skeleton className="h-60 w-60 rounded-full" />
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
@@ -248,35 +244,29 @@ export default function Dashboard() {
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
-                      fill="#8884d8"
                       dataKey="value"
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
                       {categoryData.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
 
-          {/* Bar Chart */}
-          <Card>
+          <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle>
-                {selectedMember === 'Family' ? 'Member Comparison' : 'Category Breakdown'}
+              <CardTitle className="text-lg">
+                {selectedMember === 'Family' ? 'So sánh giữa các thành viên' : 'Chi tiết theo danh mục'}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="space-y-4">
-                  <Skeleton className="h-6 w-2/3" />
                   <Skeleton className="h-6 w-full" />
                   <Skeleton className="h-6 w-full" />
                   <Skeleton className="h-6 w-full" />
@@ -284,14 +274,16 @@ export default function Dashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={barChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
+                    <YAxis tickFormatter={(value) => `${(value / 1000).toLocaleString()}k`} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
                     <Legend />
                     <Bar
+                      name="Số tiền"
                       dataKey={selectedMember === 'Family' ? 'amount' : 'value'}
-                      fill="#8884d8"
+                      fill="#6366f1"
+                      radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -300,63 +292,62 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Recent Transactions */}
-        <h2 className="text-xl font-semibold mt-8 mb-4">Recent Transactions</h2>
-        <div className="space-y-4">
+        {/* Giao dịch gần đây */}
+        <h2 className="text-2xl font-bold mt-10 mb-6">Giao dịch gần đây</h2>
+        <div className="grid grid-cols-1 gap-4">
           {recentExpenses?.slice(0, 5).map((transaction) => (
-            <Card key={transaction.id}>
+            <Card key={transaction.id} className="border-none shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="flex items-center p-4">
-                <div className="rounded-full p-2 bg-gray-100 mr-4">
-                  <EuroIcon className='w-4 h-4'/>
+                <div className="rounded-full p-3 bg-slate-100 mr-4">
+                  <BadgeDollarSign className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div className="flex-grow">
-                  <h3 className="font-semibold">{transaction.name}</h3>
+                  <h3 className="font-semibold text-slate-900">{transaction.name}</h3>
                   <p className="text-sm text-muted-foreground">{transaction.category}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">${transaction.amount.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">{transaction.member}</p>
+                  <p className="font-bold text-slate-900">{formatCurrency(transaction.amount)}</p>
+                  <p className="text-xs text-muted-foreground">{transaction.member}</p>
                 </div>
               </CardContent>
             </Card>
           ))}
-
         </div>
 
-        {/* Alerts */}
-        {selectedMember === 'Family' && (
-          <Alert variant="destructive" className="mt-6">
+        {/* Cảnh báo & Mẹo */}
+        {selectedMember === 'Family' && remainingBudget < 0 && (
+          <Alert variant="destructive" className="mt-8">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Family Budget Alert</AlertTitle>
+            <AlertTitle>Cảnh báo ngân sách gia đình</AlertTitle>
             <AlertDescription>
-              The family has exceeded the Entertainment budget by $100. Consider adjusting spending in this category.
+              Gia đình đã chi tiêu vượt quá ngân sách tổng cộng. Vui lòng kiểm tra lại các khoản chi tiêu không thiết yếu.
             </AlertDescription>
           </Alert>
         )}
 
-        <div className="mt-8 space-y-4">
-          <Alert>
-            <Users className="h-4 w-4" />
-            <AlertTitle>Family Budgeting Tip</AlertTitle>
-            <AlertDescription>
-              Consider having a family meeting to discuss budget goals and strategies for the upcoming month.
+        <div className="mt-8 mb-10">
+          <Alert className="bg-indigo-50 border-indigo-100">
+            <Users className="h-4 w-4 text-indigo-600" />
+            <AlertTitle className="text-indigo-900">Mẹo quản lý chi tiêu</AlertTitle>
+            <AlertDescription className="text-indigo-800">
+              Hãy tổ chức một buổi họp gia đình nhỏ hàng tháng để thảo luận về mục tiêu ngân sách và chiến lược tiết kiệm cho tháng tới.
             </AlertDescription>
           </Alert>
         </div>
       </main>
 
-      {/* Empty Data Dialog */}
+      {/* Thông báo dữ liệu trống */}
       <AlertDialog open={showEmptyDataDialog} onOpenChange={setShowEmptyDataDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>No Data Found</AlertDialogTitle>
+            <AlertDialogTitle>Không tìm thấy dữ liệu</AlertDialogTitle>
             <AlertDialogDescription>
-              Please set up your family information in the settings page to get started.
+              Vui lòng thiết lập thông tin gia đình và danh mục chi tiêu trong trang cài đặt để bắt đầu theo dõi tài chính.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={handleDialogAction}>
-              Go to Settings
+            <AlertDialogAction onClick={handleDialogAction} className="bg-indigo-600">
+              Đi đến Cài đặt
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

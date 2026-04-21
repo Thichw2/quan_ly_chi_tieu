@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class ExpenseOut(BaseModel):
     id: str = Field(alias="_id")  # ID của expense

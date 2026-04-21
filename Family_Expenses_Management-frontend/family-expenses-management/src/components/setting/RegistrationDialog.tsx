@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AxiosError } from 'axios'
 import {
   Select,
   SelectContent,
@@ -25,10 +24,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import { AlertCircle, Mail, UserPlus } from 'lucide-react'
+import { Mail, UserPlus, Loader2 } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AdminRegisterUser, inviteMemberViaEmail } from '@/service/API' // Bạn cần thêm hàm InviteUser vào API service nếu chưa có
+import { AdminRegisterUser, inviteMemberViaEmail } from '@/service/API'
 
 type FormErrors = {
   [key: string]: string;
@@ -42,6 +41,7 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
   handleGetFamilyMember
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("direct");
 
@@ -100,6 +100,7 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
       return;
     }
 
+    setIsLoading(true);
     try {
       await AdminRegisterUser(
         newMember.username,
@@ -112,98 +113,104 @@ const RegistrationDialog: React.FC<RegistrationDialogProps> = ({
       toast({ title: "Thành công", description: "Đã tạo tài khoản và thêm vào gia đình." });
       handleGetFamilyMember();
       setIsDialogOpen(false);
+      // Reset form
+      setNewMember({ username: '', email: '', password: '', confirmPassword: '', fullName: '', role: 'member', specificRole: 'child' });
     } catch (e: any) {
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: e.response?.data?.detail || "Không thể tạo user",
+        description: e.response?.data?.detail || "Không thể tạo người dùng mới",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
-const handleInviteEmail = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    // Gọi hàm API từ service/API.ts
-    const response = await inviteMemberViaEmail(inviteData.email, inviteData.role);
-    
-    toast({ 
-      title: "Thành công", 
-      description: response.data.message || `Đã gửi lời mời tới ${inviteData.email}` 
-    });
-    
-    // Reset form và đóng dialog
-    setInviteData({ email: '', role: 'member' });
-    setIsDialogOpen(false);
-  } catch (error: any) {
-    toast({ 
-      variant: "destructive", 
-      title: "Lỗi gửi lời mời", 
-      description: error.response?.data?.detail || "Không thể gửi lời mời lúc này." 
-    });
-  }
-};
+
+  const handleInviteEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await inviteMemberViaEmail(inviteData.email, inviteData.role);
+      toast({ 
+        title: "Đã gửi lời mời", 
+        description: response.data.message || `Một email hướng dẫn đã được gửi tới ${inviteData.email}` 
+      });
+      setInviteData({ email: '', role: 'member' });
+      setIsDialogOpen(false);
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Lỗi gửi lời mời", 
+        description: error.response?.data?.detail || "Không thể gửi lời mời lúc này." 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button className="gap-2 shadow-sm">
           <UserPlus size={18} /> Thêm thành viên
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Thêm thành viên mới</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Quản lý thành viên</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="direct" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="direct">Tạo trực tiếp</TabsTrigger>
             <TabsTrigger value="invite">Mời qua Email</TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: TẠO TRỰC TIẾP */}
-          <TabsContent value="direct">
-            <form onSubmit={handleAddMemberDirect} className="space-y-3 mt-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Họ và tên</Label>
-                  <Input name="fullName" value={newMember.fullName} onChange={handleInputChange} required />
+          <TabsContent value="direct" className="space-y-4">
+            <form onSubmit={handleAddMemberDirect} className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fullName">Họ và tên</Label>
+                  <Input id="fullName" name="fullName" value={newMember.fullName} onChange={handleInputChange} placeholder="Nguyễn Văn A" required />
+                  {errors.fullName && <p className="text-[11px] text-red-500 font-medium">{errors.fullName}</p>}
                 </div>
-                <div className="space-y-1">
-                  <Label>Username</Label>
-                  <Input name="username" value={newMember.username} onChange={handleInputChange} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="username">Username</Label>
+                  <Input id="username" name="username" value={newMember.username} onChange={handleInputChange} placeholder="vana_123" required />
+                  {errors.username && <p className="text-[11px] text-red-500 font-medium">{errors.username}</p>}
                 </div>
               </div>
               
-              <div className="space-y-1">
-                <Label>Email</Label>
-                <Input name="email" type="email" value={newMember.email} onChange={handleInputChange} required />
-                {errors.email && <p className="text-[10px] text-red-500">{errors.email}</p>}
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email liên hệ</Label>
+                <Input id="email" name="email" type="email" value={newMember.email} onChange={handleInputChange} placeholder="vana@example.com" required />
+                {errors.email && <p className="text-[11px] text-red-500 font-medium">{errors.email}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Mật khẩu</Label>
-                  <Input name="password" type="password" value={newMember.password} onChange={handleInputChange} required />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Mật khẩu</Label>
+                  <Input id="password" name="password" type="password" value={newMember.password} onChange={handleInputChange} required />
                 </div>
-                <div className="space-y-1">
-                  <Label>Xác nhận</Label>
-                  <Input name="confirmPassword" type="password" value={newMember.confirmPassword} onChange={handleInputChange} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+                  <Input id="confirmPassword" name="confirmPassword" type="password" value={newMember.confirmPassword} onChange={handleInputChange} required />
+                  {errors.confirmPassword && <p className="text-[11px] text-red-500 font-medium">{errors.confirmPassword}</p>}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Vai trò hệ thống</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Quyền hệ thống</Label>
                   <Select onValueChange={(v) => setNewMember({...newMember, role: v})} defaultValue={newMember.role}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="member">Thành viên</SelectItem>
+                      <SelectItem value="admin">Quản trị (Admin)</SelectItem>
+                      <SelectItem value="member">Người dùng (Member)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label>Vai trò gia đình</Label>
                   <Select onValueChange={(v) => setNewMember({...newMember, specificRole: v})} defaultValue={newMember.specificRole}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -216,23 +223,26 @@ const handleInviteEmail = async (e: React.FormEvent) => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full mt-4">Tạo tài khoản</Button>
+              <Button type="submit" className="w-full mt-6" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isLoading ? "Đang xử lý..." : "Tạo tài khoản thành viên"}
+              </Button>
             </form>
           </TabsContent>
 
-          {/* TAB 2: MỜI QUA EMAIL */}
-          <TabsContent value="invite">
-            <form onSubmit={handleInviteEmail} className="space-y-4 mt-4">
-              <Alert>
-                <Mail className="h-4 w-4" />
-                <AlertDescription>
-                  Hệ thống sẽ gửi một liên kết tham gia vào email này. Người nhận cần có tài khoản để tham gia.
+          <TabsContent value="invite" className="space-y-4">
+            <form onSubmit={handleInviteEmail} className="space-y-4 pt-2">
+              <Alert className="bg-blue-50 border-blue-200">
+                <Mail className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 text-xs leading-relaxed">
+                  Hệ thống sẽ gửi email chứa mã định danh gia đình. Người nhận chỉ cần đăng ký hoặc đăng nhập để tham gia tự động.
                 </AlertDescription>
               </Alert>
               <div className="space-y-2">
-                <Label>Email người nhận</Label>
+                <Label htmlFor="inviteEmail">Email người nhận</Label>
                 <Input 
-                  placeholder="example@gmail.com" 
+                  id="inviteEmail"
+                  placeholder="nhap-email@gmail.com" 
                   type="email" 
                   required 
                   value={inviteData.email}
@@ -244,12 +254,14 @@ const handleInviteEmail = async (e: React.FormEvent) => {
                 <Select onValueChange={(v) => setInviteData({...inviteData, role: v})} defaultValue={inviteData.role}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="admin">Quản trị viên</SelectItem>
                     <SelectItem value="member">Thành viên</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" variant="secondary" className="w-full">Gửi lời mời</Button>
+              <Button type="submit" variant="default" className="w-full mt-4" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Gửi email mời tham gia"}
+              </Button>
             </form>
           </TabsContent>
         </Tabs>
@@ -258,4 +270,4 @@ const handleInviteEmail = async (e: React.FormEvent) => {
   )
 }
 
-export default RegistrationDialog
+export default RegistrationDialog;

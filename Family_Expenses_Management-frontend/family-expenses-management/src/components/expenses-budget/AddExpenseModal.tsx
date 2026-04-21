@@ -34,7 +34,7 @@ export default function AddExpenseModal({ isOpen, onClose, onAddExpense }: AddEx
       description,
     });
     onClose();
-    // Reset form
+    // Đặt lại form về trạng thái trống
     setAmount('');
     setCategory('');
     setDate('');
@@ -45,42 +45,48 @@ export default function AddExpenseModal({ isOpen, onClose, onAddExpense }: AddEx
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Expense</DialogTitle>
+          <DialogTitle>Thêm chi tiêu mới</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            {/* Số tiền */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="amount" className="text-right">
-                Amount
+                Số tiền
               </Label>
               <Input
                 id="amount"
                 type="number"
+                placeholder="Nhập số tiền..."
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="col-span-3"
                 required
               />
             </div>
+
+            {/* Danh mục */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="category" className="text-right">
-                Category
+                Danh mục
               </Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={setCategory} required>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Chọn danh mục" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="groceries">Groceries</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="entertainment">Entertainment</SelectItem>
-                  <SelectItem value="transportation">Transportation</SelectItem>
+                  <SelectItem value="groceries">Thực phẩm</SelectItem>
+                  <SelectItem value="utilities">Tiện ích (Điện/Nước)</SelectItem>
+                  <SelectItem value="entertainment">Giải trí</SelectItem>
+                  <SelectItem value="transportation">Di chuyển</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Ngày tháng */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="date" className="text-right">
-                Date
+                Ngày
               </Label>
               <Input
                 id="date"
@@ -91,12 +97,15 @@ export default function AddExpenseModal({ isOpen, onClose, onAddExpense }: AddEx
                 required
               />
             </div>
+
+            {/* Mô tả */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
-                Description
+                Mô tả
               </Label>
               <Textarea
                 id="description"
+                placeholder="Nhập ghi chú thêm..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="col-span-3"
@@ -104,7 +113,10 @@ export default function AddExpenseModal({ isOpen, onClose, onAddExpense }: AddEx
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Add Expense</Button>
+            <Button variant="outline" type="button" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button type="submit">Thêm chi tiêu</Button>
           </DialogFooter>
         </form>
       </DialogContent>

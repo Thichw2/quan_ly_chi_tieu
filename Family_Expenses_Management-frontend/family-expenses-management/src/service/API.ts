@@ -1,241 +1,146 @@
-// Bỏ import axios và apiUrl vì chúng ta không cần gọi mạng nữa
 import axios from 'axios'
 import apiUrl from './apiUrl'
 
-// --- DỮ LIỆU GIẢ (MOCK DATA) ---
-const mockCategories = [
-  { id: 1, name: "Ăn uống", value: 5000000 },
-  { id: 2, name: "Di chuyển", value: 1000000 },
-  { id: 3, name: "Giải trí", value: 2000000 },
-];
-
-const mockMembers = [
-  { id: 1, name: "Bố", amount: 15000000, role: "admin" },
-  { id: 2, name: "Mẹ", amount: 12000000, role: "member" },
-];
-
-const mockExpenses = [
-  { id: 1, name: "Siêu thị Winmart", amount: 450000, category: "Ăn uống", member: "Mẹ", date_str: "2024-03-20" },
-  { id: 2, name: "Tiền điện tháng 3", amount: 1200000, category: "Hóa đơn", member: "Bố", date_str: "2024-03-18" },
-  { id: 3, name: "Thay nhớt xe", amount: 250000, category: "Di chuyển", member: "Con trai", date_str: "2024-03-15" },
-  { id: 4, name: "Mua sách giáo khoa", amount: 300000, category: "Giáo dục", member: "Con gái", date_str: "2024-03-10" },
-  { id: 5, name: "Đi ăn Pizza", amount: 600000, category: "Ăn uống", member: "Cả nhà", date_str: "2024-03-22" },
-];
-
-// Hàm tiện ích tạo delay giả lập mạng chậm (tùy chọn, để giao diện có hiệu ứng loading)
+// Small delay helper for mocks
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- CÁC HÀM API GIẢ LẬP ---
+// Helper để lấy token
+const getAuthHeader = () => {
+  const token = localStorage.getItem("access_token");
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json'
+  };
+};
 
+// --- AUTH / USERS ---
 export async function Login(username: string, password: string) {
-    // Sử dụng URLSearchParams để gửi dữ liệu dạng Form
-    const params = new URLSearchParams();
-    params.append('username', username);
-    params.append('password', password);
+  const params = new URLSearchParams();
+  params.append('username', username);
+  params.append('password', password);
 
-    const response = await axios.post(
-        `${apiUrl}/auth/login`,
-        params, // Gửi params thay vì object {}
-        {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
-            }
-        }
-    );
-    return response;
+  return await axios.post(`${apiUrl}/auth/login`, params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }
+  });
 }
 
-export async function RegisterUser(
-    username: string, 
-    email: string, 
-    password: string,
-    fullName: string,
-    specificRoles: string
-) {
-    const params = new URLSearchParams();
-    params.append('fullname', fullName.trim());
-    params.append('username', username.trim());
-    params.append('email', email.trim());
-    params.append('password', password);
-    params.append('role', 'admin'); // Hoặc logic role của bạn
-    params.append('specific_role', specificRoles);
+export async function RegisterUser(username: string, email: string, password: string, fullName: string, role: string, specificRoles: string) {
+   const formData = new FormData();
+    formData.append('username', username);
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('fullname', fullName);
+    formData.append('role', role); // admin hoặc member
+    formData.append('specific_role', specificRoles); // father, mother...
 
-    return await axios.post(`${apiUrl}/auth/register`, params, {
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-        }
+    // Thay thế endpoint và axios instance của bạn ở đây
+    return await axios.post(`${apiUrl}/auth/register`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
     });
 }
+
 export async function VerifyEmail(email: string, otp: string) {
-    const params = new URLSearchParams();
-    params.append('email', email);
-    params.append('otp', otp);
-
-    return await axios.post(`${apiUrl}/auth/verify-email`, params, {
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-        }
-    });
+  const params = new URLSearchParams();
+  params.append('email', email);
+  params.append('otp', otp);
+  return await axios.post(`${apiUrl}/auth/verify-email`, params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }
+  });
 }
 
-// 4. ĐỔI MẬT KHẨU (Change Password)
 export async function ChangePassword(currentPassword: string, newPassword: string) {
-    const access_token = localStorage.getItem("access_token");
-    const response = await axios.put(
-        `${apiUrl}/auth/change-password`,
-        new URLSearchParams({
-            current_password: currentPassword,
-            new_password: newPassword,
-        }),
-        {
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        }
-    );
-    return response
+  return await axios.put(`${apiUrl}/auth/change-password`, new URLSearchParams({ current_password: currentPassword, new_password: newPassword }), {
+    headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' }
+  });
 }
 
-// 5. QUÊN MẬT KHẨU (Forgot Password)
 export async function ForgotPassword(email: string) {
-    const data = new URLSearchParams();
-    data.append('email', email);
-    const response = await axios.post(
-        `${apiUrl}/auth/forget-password`,
-        data.toString(), 
-        {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json',
-            },
-        }
-    );
-    return response
+  const data = new URLSearchParams();
+  data.append('email', email);
+  return await axios.post(`${apiUrl}/auth/forget-password`, data.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }
+  });
 }
-
 
 export async function Logout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("family_id");
-    localStorage.removeItem("user_id");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("family_id");
+  localStorage.removeItem("user_id");
 }
 
-export async function GetFamilyData() {
-    await delay(500);
-    return { 
-        status: 200, 
-        data: {
-            totalBudget: 30000000,
-            totalSpent: 8000000,
-            categoryData: mockCategories,
-            memberData: mockMembers,
-            recentExpenses: mockExpenses
-        } 
-    };
-}
-// service/API.ts
-
-// service/API.ts
-
-export async function AdminRegisterUser(
-  username: string,
-  email: string,
-  password: string,
-  fullName: string,
-  specificRole: string,
-  role: string
-) {
-  const access_token = localStorage.getItem("access_token");
+export async function AdminRegisterUser(username: string, email: string, password: string, fullName: string, specificRole: string, role: string) {
   const params = new URLSearchParams();
-  
-  // Phải khớp chính xác key với Form(...) ở Backend
-  params.append('fullname', fullName); 
+  params.append('fullname', fullName);
   params.append('username', username);
   params.append('email', email);
   params.append('password', password);
   params.append('role', role);
   params.append('specific_role', specificRole);
-
-  return await axios.post(`${apiUrl}/users/add_members`, params, {
-    headers: {
-      'Authorization': `Bearer ${access_token}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/json'
-    }
-  });
+  return await axios.post(`${apiUrl}/users/add_members`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
 }
 
-// Thêm hàm xóa thành viên
 export async function deleteMemberApi(userId: string) {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.delete(`${apiUrl}/users/${userId}`, {
-        headers: {
-            'Authorization': `Bearer ${access_token}`
-        }
-    });
+  return await axios.delete(`${apiUrl}/users/${userId}`, { headers: getAuthHeader() });
 }
 
-// service/API.ts
-
-// 1. LẤY DANH SÁCH DANH MỤC
-// Lưu ý: Backend đã đổi prefix thành /expense-categories (có s) 
-// và tự lọc theo token nên không cần truyền familyId vào URL nữa.
-export async function getCategories() {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.get(`${apiUrl}/expense-categories/`, {
-        headers: { 
-            'Authorization': `Bearer ${access_token}`,
-            'Accept': 'application/json'
-        }
-    });
-}
-
-// 2. TẠO DANH MỤC MỚI
 export async function CreateCategories(categoryName: string) {
-    const access_token = localStorage.getItem("access_token");
-    const params = new URLSearchParams();
-    params.append('name', categoryName); // Backend dùng Form(...) nên phải dùng URLSearchParams
-
-    return await axios.post(`${apiUrl}/expense-categories/`, params, {
-        headers: { 
-            'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/x-www-form-urlencoded' 
-        }
-    });
+  const params = new URLSearchParams();
+  params.append('name', categoryName);
+  return await axios.post(`${apiUrl}/expense-categories/`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
 }
-
-// 3. CẬP NHẬT DANH MỤC
 export async function updateCategoryApi(id: string, newName: string) {
-    const access_token = localStorage.getItem("access_token");
-    const params = new URLSearchParams();
-    params.append('name', newName);
-
-    return await axios.put(`${apiUrl}/expense-categories/${id}`, params, {
-        headers: { 
-            'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/x-www-form-urlencoded' 
-        }
-    });
+  const params = new URLSearchParams();
+  params.append('name', newName);
+  return await axios.put(`${apiUrl}/expense-categories/${id}`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
 }
-
-// 4. XÓA DANH MỤC
 export async function deleteCategoryApi(id: string) {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.delete(`${apiUrl}/expense-categories/${id}`, {
-        headers: { 
-            'Authorization': `Bearer ${access_token}` 
-        }
-    });
+  return await axios.delete(`${apiUrl}/expense-categories/${id}`, { headers: getAuthHeader() });
 }
+
 export async function getMemberFamily() {
+  return await axios.get(`${apiUrl}/users/family`, { headers: getAuthHeader() });
+}
+
+// --- FAMILY ---
+export async function CreateFamilyNames(familyName: string) {
+  return await axios.post(`${apiUrl}/family/create`, new URLSearchParams({ name: familyName }), { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
+}
+export async function ActivateAccount(token: string) {
+  return await axios.get(`${apiUrl}/auth/activate?token=${token}`, { headers: { 'Accept': 'application/json' } });
+}
+export async function updateMemberApi(userId: string, updateData: { fullname?: string, role?: string, specific_role?: string }) {
+  const params = new URLSearchParams();
+  if (updateData.fullname) params.append('fullname', updateData.fullname);
+  if (updateData.role) params.append('role', updateData.role);
+  if (updateData.specific_role) params.append('specific_role', updateData.specific_role);
+  return await axios.put(`${apiUrl}/users/${userId}`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
+}
+export async function GetMe() { return await axios.get(`${apiUrl}/auth/me`, { headers: getAuthHeader() }); }
+export async function GetFamilyDetail() { return await axios.get(`${apiUrl}/family/detail`, { headers: getAuthHeader() }); }
+export async function LeaveFamily() { return await axios.post(`${apiUrl}/family/leave`, {}, { headers: getAuthHeader() }); }
+export async function AcceptFamilyInvite(token: string) { return await axios.post(`${apiUrl}/users/accept-invite`, new URLSearchParams({ token }), { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } }); }
+export async function inviteMemberViaEmail(email: string, role: string) { const params = new URLSearchParams(); params.append('email', email); params.append('role', role); return await axios.post(`${apiUrl}/users/invite_only`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } }); }
+
+
+
+export async function updateBudget(budgetId: string, updateData: { user_id?: string; category_id?: string; amount?: number; month?: number; year?: number }) {
+  const params = new URLSearchParams();
+  if (updateData.user_id) params.append('user_id', updateData.user_id);
+  if (updateData.category_id) params.append('category_id', updateData.category_id);
+  if (updateData.amount !== undefined) params.append('amount', String(updateData.amount));
+  if (updateData.month !== undefined) params.append('month', String(updateData.month));
+  if (updateData.year !== undefined) params.append('year', String(updateData.year));
+  return await axios.put(`${apiUrl}/budgets/${budgetId}`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
+}
+// Small mock for RequestBudget (not supported by backend yet)
+export async function GetFamilyData() { return await axios.get(`${apiUrl}/expenses/family-data`, { headers: getAuthHeader() }); }
+// Ví dụ trong file service/API.ts
+
+
+export async function getMemberData () {
     const access_token = localStorage.getItem("access_token")
     const response = await axios.get(`
-    ${apiUrl}/users/family`,
+    ${apiUrl}/expenses/member-data`,
     {
         headers: {
             'accept': 'application/json',
@@ -245,227 +150,311 @@ export async function getMemberFamily() {
     return response
 }
 
-export async function getMemberData() {
-    await delay(500);
-    return { 
-        status: 200, 
-        data: {
-            // Dashboard dùng Object.entries nên key phải là tên Member
-            members: {
-                "Bố": {
-                    totalBudget: 15000000,
-                    totalSpent: 4000000,
-                    categoryData: mockCategories,
-                    recentExpenses: mockExpenses
-                },
-                "Mẹ": {
-                    totalBudget: 15000000,
-                    totalSpent: 2500000,
-                    categoryData: mockCategories,
-                    recentExpenses: mockExpenses
-                }
-            }
-        } 
-    };
-}
-
-
-// Helper để lấy token
-const getAuthHeader = () => {
-    const token = localStorage.getItem("access_token");
-    return {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-    };
-};
-
-
-export async function CreateFamilyNames(familyName: string) {
-    return await axios.post(`${apiUrl}/family/create`, // Thêm /create vào đây
-        new URLSearchParams({ name: familyName }), // Backend đang dùng Form(...)
-        { 
-            headers: {
-                ...getAuthHeader(),
-                'Content-Type': 'application/x-www-form-urlencoded' 
-            } 
-        }
-    );
-}
-
-// 4. GET EXPENSES (Lấy từ DB thật)
-export async function getExpenses() {
-    const familyId = localStorage.getItem("family_id");
-    return await axios.get(`${apiUrl}/expense/family/${familyId}`, {
-        headers: getAuthHeader()
-    });
-}
-export async function ActivateAccount(token: string) {
-    return await axios.get(`${apiUrl}/auth/activate?token=${token}`, {
-        headers: { 'Accept': 'application/json' }
-    });
-}
-
-export async function updateMemberApi(userId: string, updateData: { fullname?: string, role?: string, specific_role?: string }) {
-    const access_token = localStorage.getItem("access_token");
-    const params = new URLSearchParams();
-    if (updateData.fullname) params.append('fullname', updateData.fullname);
-    if (updateData.role) params.append('role', updateData.role);
-    if (updateData.specific_role) params.append('specific_role', updateData.specific_role);
-
-    return await axios.put(`${apiUrl}/users/${userId}`, params, {
+export async function getBudgets () {
+    const access_token = localStorage.getItem("access_token")
+    const response = await axios.get(`
+    ${apiUrl}/budgets`,
+    {
         headers: {
+            'accept': 'application/json',
             'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
         }
-    });
+    })
+    return response
 }
-export async function GetMe() {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.get(`${apiUrl}/auth/me`, {
-        headers: { 'Authorization': `Bearer ${access_token}` }
-    });
+export async function getExpenses () {
+    const access_token = localStorage.getItem("access_token")
+    const response = await axios.get(`
+    ${apiUrl}/expenses`,
+    {
+        headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${access_token}`,
+        }
+    })
+    return response
 }
 
-export async function GetFamilyDetail() {
+export async function createNewExpenses(categoryId: string, amount: number, date_str: string, description: string) {
     const access_token = localStorage.getItem("access_token");
-    return await axios.get(`${apiUrl}/family/detail`, {
-        headers: { 'Authorization': `Bearer ${access_token}` }
-    });
+    const newAmount = amount.toString()
+    const response = await axios.post(
+      `${apiUrl}/expenses/`,
+      new URLSearchParams({
+        category_id: categoryId,
+        amount: newAmount,
+        date_str: date_str,
+        description: description,
+      }).toString(),
+      {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    return response
+  }
+
+  export async function getCategories () {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.get(`
+    ${apiUrl}/expense-categories/`,
+    {
+        headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${access_token}`,
+        }
+    })
+    return response
+  }
+
+  export async function updateExpense(expenseId: string, categoryId: string, amount: number, date_str: string, description: string) {
+    const access_token = localStorage.getItem("access_token");
+    const newAmount = amount.toString()
+    const response = await axios.put(
+      `${apiUrl}/expenses/${expenseId}`,
+      new URLSearchParams({
+        category_id: categoryId,
+        amount: newAmount,
+        date_str: date_str.toString().split('T')[0],
+        description: description,
+      }).toString(),
+      {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    return response
+  }
+
+export async function updateCategoy (categoryId: string, name: string) {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.put(
+        `${apiUrl}/expense-categories/${categoryId}`, 
+        new URLSearchParams({
+            name: name
+          }),
+          {
+            headers: {
+              'accept': 'application/json',
+              'Authorization': `Bearer ${access_token}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+    )
+    return response
 }
 
-// Rời khỏi gia đình (Dành cho thành viên)
-export async function LeaveFamily() {
+export async function adminAddBudget(categoryId: string, amount: string, period: string, userId: string) {
     const access_token = localStorage.getItem("access_token");
-    return await axios.post(`${apiUrl}/family/leave`, {}, {
-        headers: { 'Authorization': `Bearer ${access_token}` }
+    const [year, month] = period.split("-");
+    const data = new URLSearchParams({
+        category_id: categoryId,
+        amount: amount,
+        month: month,
+        year: year,
+        user_id: userId,
     });
-}
-export async function AcceptFamilyInvite(token: string) {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.post(`${apiUrl}/users/accept-invite`, 
-        new URLSearchParams({ token: token }), 
+    const response = await axios.post(
+        `${apiUrl}/budgets/`,
+        data.toString(),
         {
             headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
+                'accept': 'application/json',
+            },
         }
     );
+    return response;
 }
-// 5. GET BUDGETS
-export async function getBudgets() {
-    const familyId = localStorage.getItem("family_id");
-    // Giả sử backend có endpoint lấy budget theo family
-    return await axios.get(`${apiUrl}/budget/family/${familyId}`, {
-        headers: getAuthHeader()
-    });
-}
-export async function acceptInviteApi(token: string) {
-    const access_token = localStorage.getItem("access_token");
-    return await axios.post(`${apiUrl}/users/accept-invite`, 
-        new URLSearchParams({ token: token }), 
-        {
-            headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        }
-    );
-}
-export async function inviteMemberViaEmail (email: string, role: string) {
-    const access_token = localStorage.getItem("access_token");
-    const params = new URLSearchParams();
-    params.append('email', email);
-    params.append('role', role);
 
-    return await axios.post(`${apiUrl}/users/invite_only`, params, {
+export async function deleteExpense(expenseId: string)  {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.delete(`
+    ${apiUrl}/expenses/${expenseId}`,
+    {
         headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
+          'accept': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    )
+
+    return response
+}
+
+export async function UpdateBudget(
+    budgetId: string,
+    userId: string,
+    categoryId: string,
+    amount: string,
+    month: string,
+    year: string
+  ) {
+      const access_token = localStorage.getItem("access_token");
+    const [_, months] = month.split("-");
+    const response = await axios.put(
+        `${apiUrl}/budgets/${budgetId}`,
+        new URLSearchParams({
+          user_id: userId,
+          category_id: categoryId,
+          amount: amount,
+          month: months,
+          year: year,
+        }).toString(),
+        {
+          headers: {
+            accept: "application/json",
+            Authorization: `Bearer ${access_token}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
         }
-    });
-}
-
-// 6. CREATE EXPENSE (Thêm chi tiêu mới)
-export async function createNewExpenses(expenseData: any) {
-    return await axios.post(`${apiUrl}/expense/`, expenseData, {
-        headers: getAuthHeader()
-    });
-}
-
-// 7. DELETE EXPENSE
-export async function deleteExpense(id: string) {
-    return await axios.delete(`${apiUrl}/expense/${id}`, {
-        headers: getAuthHeader()
-    });
-}
-
-
-
-
-export async function updateExpense() {
-    await delay(300);
-    return { status: 200, data: { message: "Cập nhật chi tiêu thành công" } };
-}
-
-export async function updateCategoy() {
-    await delay(300);
-    return { status: 200, data: { message: "Cập nhật danh mục thành công" } };
-}
-
-export async function adminAddBudget() {
-    await delay(300);
-    return { status: 201, data: { message: "Thêm ngân sách thành công" } };
-}
-
-
-
-export async function UpdateBudget() {
-    await delay(300);
-    return { status: 200, data: { message: "Cập nhật ngân sách thành công" } };
-}
+      );
   
-export async function deleteBudget() {
-    await delay(300);
-    return { status: 200, data: { message: "Xóa ngân sách thành công" } };
+    return response;
+  }
+  
+export async function deleteBudget(budgetId: string)  {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.delete(`
+    ${apiUrl}/budgets/${budgetId}`,
+    {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    )
+
+    return response
 }
 
-export async function RequestBudget() {
-    await delay(400);
-    return { status: 201, data: { message: "Yêu cầu ngân sách thành công" } };
+export async function RequestBudget(categoryId: string, period:string, amount:string) {
+    const access_token = localStorage.getItem("access_token");
+    const userId = localStorage.getItem("user_id");
+    if (!access_token || !userId) {
+        throw new Error("Missing access token or user ID");
+    }
+    const [year, month] = period.split("-");
+    const data = new URLSearchParams({
+        category_id: categoryId,
+        requested_amount: amount,
+        month: month,
+        user_id: userId,
+        year: year,
+    });
+    const response = await axios.post(
+        `${apiUrl}/budget-requests/`,
+        data.toString(),
+        {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Bearer ${access_token}`,
+                'accept': 'application/json',
+            },
+        }
+    );
+    return response;
 }
 
-export async function GetMonthlyData() {
-    await delay(500);
-    return { 
-        status: 200, 
-        data: [
-            { month: "T1", expense: 12000000, budget: 15000000 },
-            { month: "T2", expense: 15000000, budget: 15000000 },
-            { month: "T3", expense: 9000000, budget: 15000000 },
-        ] 
-    };
+export async function GetMonthlyData () {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.get(`
+    ${apiUrl}/expenses/monthly-data`,
+    {
+        headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${access_token}`,
+        }
+    })
+    return response
 }
 
 
 
-export async function BugetPending() {
-    await delay(400);
-    return { 
-        status: 200, 
-        data: [
-            { id: 1, category_name: "Giải trí", requested_amount: 500000, user_name: "Mẹ", status: "pending" }
-        ] 
-    };
+export async function BugetPending () {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.get(`
+        ${apiUrl}/budget-requests/pending
+    `, {
+        headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+    })
+
+    return response
 }
 
-export async function ApproveBudget() {
-    await delay(300);
-    return { status: 200, data: { message: "Đã duyệt" } };
+export async function ApproveBudget (requestId: string) {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.put(`
+        ${apiUrl}/budget-requests/approve/${requestId}
+    `, {},{
+        headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json',
+        },
+    })
+
+    return response
 }
 
-export async function RejectBudget() {
-    await delay(300);
-    return { status: 200, data: { message: "Đã từ chối" } };
+export async function RejectBudget (requestId: string) {
+    const access_token = localStorage.getItem("access_token");
+    const response = await axios.put(`
+        ${apiUrl}/budget-requests/deny/${requestId}
+    `, {},{
+        headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json',
+        },
+    })
+
+    return response
 }
 
+// export async function ForgotPassword(email: string) {
+//     const data = new URLSearchParams();
+//     data.append('email', email);
+//     const response = await axios.post(
+//         `${apiUrl}/auth/forget-password`,
+//         data.toString(), 
+//         {
+//             headers: {
+//                 'Content-Type': 'application/x-www-form-urlencoded',
+//                 'Accept': 'application/json',
+//             },
+//         }
+//     );
+//     return response
+// }
+// export async function ChangePassword(currentPassword: string, newPassword: string) {
+//     const access_token = localStorage.getItem("access_token");
+//     const response = await axios.put(
+//         `${apiUrl}/auth/change-password`,
+//         new URLSearchParams({
+//             current_password: currentPassword,
+//             new_password: newPassword,
+//         }),
+//         {
+//             headers: {
+//                 'Authorization': `Bearer ${access_token}`,
+//                 'Accept': 'application/json',
+//                 'Content-Type': 'application/x-www-form-urlencoded',
+//             },
+//         }
+//     );
+//     return response
+// }

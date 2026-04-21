@@ -3,8 +3,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Form
 from bson import ObjectId
 from typing import Dict, List, Optional
-from datetime import datetime, date
-
+from datetime import datetime, date, timedelta
 from fastapi.encoders import jsonable_encoder
 from app.core.utils import get_current_user, send_email
 from app.models.user import User
@@ -226,121 +225,96 @@ async def delete_expense(expense_id: str, current_user: User = Depends(get_curre
     if result.deleted_count == 0:
         raise HTTPException(status_code=500, detail="Expense deletion failed")
     return
+from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+from typing import List
+# Giả định các Schema và Collection đã được import đúng
 
 @router.get("/family-data", response_model=FamilyData)
 async def get_family_data(current_user: User = Depends(get_current_user)):
-    """
-    Lấy dữ liệu tổng quan về ngân sách gia đình.
-    """
-    family_id = current_user.family_id
-    if not family_id:
-        raise HTTPException(status_code=400, detail="User does not belong to any family.")
+    raw_family_id = current_user.family_id
+    if not raw_family_id:
+        raise HTTPException(status_code=400, detail="Người dùng chưa thuộc gia đình nào.")
     
-    # Lấy ngày hiện tại để xác định tháng và năm
+    # Ép kiểu family_id sang string để khớp với bảng budgets
+    family_id_str = str(raw_family_id)
     now = datetime.utcnow()
-    current_month = now.month
-    current_year = now.year
+    current_month, current_year = now.month, now.year
     
-    # 1. Lấy totalBudget từ collection budgets
-    budget_doc = await budgets_collection.aggregate([
-        {
-        "$match": {
-            "family_id": family_id,
-            "month": current_month,
-            "year": current_year},
-        },
-        {
-        "$group": {
-            "_id": None,
-            "total_budget": {"$sum": "$amount"}
-        }
-        }
-    ]).to_list(length=1)
+    # 1. Map thông tin User & Category
+    users = await users_collection.find({"family_id": raw_family_id}).to_list(None)
+    user_map = {str(u["_id"]): (u.get("fullname") or u.get("username")) for u in users}
+    user_ids = list(user_map.keys())
     
-    total_budget = budget_doc[0]["total_budget"] if budget_doc else 0.0
+    categories = await expense_categories_collection.find({"family_id": raw_family_id}).to_list(None)
+    cat_map = {str(c["_id"]): c["name"] for c in categories}
     
-    # 2. Lấy tất cả user_ids trong gia đình
-    users_cursor = users_collection.find({"family_id": family_id})
-    users = await users_cursor.to_list(length=None)
-    user_ids = [str(user["_id"]) for user in users]
-    user_id_name_map = {str(user["_id"]): user["username"] for user in users}
+    # 2. Lấy Ngân sách tháng hiện tại
+    budgets_raw = await budgets_collection.find({
+        "family_id": family_id_str,
+        "month": current_month,
+        "year": current_year
+    }).to_list(None)
     
-    # 3. Lấy tất cả categories trong gia đình
-    categories_cursor = expense_categories_collection.find({"family_id": family_id})
-    categories = await categories_cursor.to_list(length=None)
-    category_id_name_map = {str(cat["_id"]): cat["name"] for cat in categories}
+    total_family_budget = sum(b.get("amount", 0.0) for b in budgets_raw)
+    member_budgets_map = {uid: 0.0 for uid in user_ids}
+    for b in budgets_raw:
+        uid = b.get("user_id")
+        if uid in member_budgets_map:
+            member_budgets_map[uid] += b.get("amount", 0.0)
+            
+    # 3. Lấy Chi tiêu trong tháng hiện tại
+    start_date = datetime(current_year, current_month, 1)
+    end_date = datetime(current_year, current_month + 1, 1) if current_month < 12 else datetime(current_year + 1, 1, 1)
     
-    # 4. Lấy tất cả expenses trong gia đình, trong tháng và năm hiện tại
-    expenses_cursor = expenses_collection.find({
+    expenses = await expenses_collection.find({
         "user_id": {"$in": user_ids},
-        "date": {
-            "$gte": datetime(current_year, current_month, 1),
-            "$lt": datetime(current_year, current_month % 12 +1, 1)
-        }
-    })
-    expenses = await expenses_cursor.to_list(length=None)
+        "date": {"$gte": start_date, "$lt": end_date}
+    }).to_list(None)
     
-    # 5. Tính totalSpent
-    total_spent = sum(expense.get("amount", 0.0) for expense in expenses)
+    total_family_spent = sum(e.get("amount", 0.0) for e in expenses)
+    member_spent_map = {uid: 0.0 for uid in user_ids}
+    category_sum_map = {}
     
-    # 6. Tính tổng chi tiêu theo category
-    category_sum = {}
-    for expense in expenses:
-        cat_id = expense.get("category_id")
-        if cat_id in category_sum:
-            category_sum[cat_id] += expense.get("amount", 0.0)
-        else:
-            category_sum[cat_id] = expense.get("amount", 0.0)
+    for e in expenses:
+        uid = e.get("user_id")
+        if uid in member_spent_map:
+            member_spent_map[uid] += e.get("amount", 0.0)
+        cid = e.get("category_id")
+        if cid:
+            category_sum_map[cid] = category_sum_map.get(cid, 0.0) + e.get("amount", 0.0)
+
+    # 4. Đóng gói Member Data (Gồm cả Spent và Budget cá nhân)
+    member_data_list = [
+        MemberSpentData(
+            name=user_map.get(uid, "Thành viên"),
+            amount=member_spent_map[uid],
+            budget=member_budgets_map[uid]
+        ) for uid in user_ids
+    ]
     
-    category_data = []
-    for cat_id, total in category_sum.items():
-        cat_name = category_id_name_map.get(cat_id, "Unknown")
-        category_data.append(CategoryData(name=cat_name, value=total))
+    # 5. Đóng gói Category Data
+    category_data = [CategoryData(name=cat_map.get(cid, "Khác"), value=val) for cid, val in category_sum_map.items()]
     
-    # 7. Tính tổng chi tiêu theo thành viên
-    member_sum = {}
-    for expense in expenses:
-        user_id = expense.get("user_id")
-        if user_id in member_sum:
-            member_sum[user_id] += expense.get("amount", 0.0)
-        else:
-            member_sum[user_id] = expense.get("amount", 0.0)
-    
-    member_data = []
-    for user_id, total in member_sum.items():
-        user_name = user_id_name_map.get(user_id, "Unknown")
-        member_data.append(MemberSpentData(name=user_name, amount=total))
-    
-    # 8. Lấy các khoản chi tiêu gần đây nhất (ví dụ: 5 khoản gần nhất)
-    recent_expenses_cursor = expenses_collection.find({
-        "user_id": {"$in": user_ids}
-    }).sort("date", -1).limit(5)
-    recent_expenses = await recent_expenses_cursor.to_list(length=5)
-    
-    recent_expenses_list = []
-    for exp in recent_expenses:
-        exp_id = str(exp["_id"])
-        exp_name = exp.get("description", "No Description")
-        exp_amount = exp.get("amount", 0.0)
-        category_name = category_id_name_map.get(exp.get("category_id", ""), "Unknown")
-        member_name = user_id_name_map.get(exp.get("user_id", ""), "Unknown")
-        recent_expenses_list.append(RecentExpense(
-            id=exp_id,
-            name=exp_name,
-            amount=exp_amount,
-            category=category_name,
-            member=member_name
-        ))
-    # 99. Tạo và trả về FamilyData
-    family_data = FamilyData(
-        totalBudget=total_budget,
-        totalSpent=total_spent,
+    # 6. Giao dịch gần đây
+    recent_raw = await expenses_collection.find({"user_id": {"$in": user_ids}}).sort("date", -1).limit(5).to_list(5)
+    recent_list = [
+        RecentExpense(
+            id=str(r["_id"]),
+            name=r.get("description") or "Chi tiêu không tiêu đề",
+            amount=r.get("amount", 0.0),
+            category=cat_map.get(r.get("category_id"), "Khác"),
+            member=user_map.get(r.get("user_id"), "Thành viên")
+        ) for r in recent_raw
+    ]
+
+    return FamilyData(
+        totalBudget=total_family_budget,
+        totalSpent=total_family_spent,
         categoryData=category_data,
-        memberData=member_data,
-         recentExpenses=recent_expenses_list
+        memberData=member_data_list,
+        recentExpenses=recent_list
     )
-    
-    return family_data
 
 
 @router.get("/member-data", response_model=MemberDataMap)

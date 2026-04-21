@@ -1,3 +1,5 @@
+'use client';
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -28,25 +30,25 @@ export default function SearchAndFilter({
   return (
     <div className="space-y-4 mb-4">
       <div className="flex flex-wrap gap-4">
-        {/* Search Field */}
+        {/* Ô tìm kiếm */}
         <div className="flex-1 min-w-[200px]">
-          <Label htmlFor="search">Search</Label>
+          <Label htmlFor="search">Tìm kiếm</Label>
           <Input
             id="search"
-            placeholder="Search..."
+            placeholder="Tìm kiếm nội dung..."
             value={filters.search}
             onChange={(e) => {
               if (filters.search !== e.target.value) {
                 setFilters({ ...filters, search: e.target.value })
               }
             }}
-            aria-label="Search input"
+            aria-label="Ô nhập tìm kiếm"
           />
         </div>
 
-        {/* Category Select */}
+        {/* Lọc theo danh mục */}
         <div className="w-[200px]">
-          <Label htmlFor="category">Category</Label>
+          <Label htmlFor="category">Danh mục</Label>
           <Select
             value={filters.category}
             onValueChange={(value) => {
@@ -55,11 +57,11 @@ export default function SearchAndFilter({
               }
             }}
           >
-            <SelectTrigger id="category" aria-label="Category select">
-              <SelectValue placeholder="All Categories" />
+            <SelectTrigger id="category" aria-label="Chọn danh mục">
+              <SelectValue placeholder="Tất cả danh mục" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">Tất cả danh mục</SelectItem>
               {categories.length > 0 ? (
                 categories.map((category) => (
                   <SelectItem key={category} value={category}>
@@ -67,17 +69,17 @@ export default function SearchAndFilter({
                   </SelectItem>
                 ))
               ) : (
-                <SelectItem value="" disabled>No categories available</SelectItem>
+                <SelectItem value="" disabled>Không có danh mục nào</SelectItem>
               )}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Date Range */}
+        {/* Khoảng ngày */}
         {showDateRange && (
           <>
             <div>
-              <Label htmlFor="startDate">Start Date</Label>
+              <Label htmlFor="startDate">Từ ngày</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -87,11 +89,11 @@ export default function SearchAndFilter({
                     setFilters({ ...filters, startDate: e.target.value })
                   }
                 }}
-                aria-label="Start date input"
+                aria-label="Ô nhập ngày bắt đầu"
               />
             </div>
             <div>
-              <Label htmlFor="endDate">End Date</Label>
+              <Label htmlFor="endDate">Đến ngày</Label>
               <Input
                 id="endDate"
                 type="date"
@@ -101,16 +103,16 @@ export default function SearchAndFilter({
                     setFilters({ ...filters, endDate: e.target.value })
                   }
                 }}
-                aria-label="End date input"
+                aria-label="Ô nhập ngày kết thúc"
               />
             </div>
           </>
         )}
 
-        {/* Period */}
+        {/* Kỳ hạn (Tháng/Năm) */}
         {showPeriod && (
           <div>
-            <Label htmlFor="period">Period</Label>
+            <Label htmlFor="period">Kỳ hạn</Label>
             <Input
               id="period"
               type="month"
@@ -120,7 +122,7 @@ export default function SearchAndFilter({
                   setFilters({ ...filters, period: e.target.value })
                 }
               }}
-              aria-label="Period input"
+              aria-label="Ô nhập kỳ hạn tháng"
             />
           </div>
         )}

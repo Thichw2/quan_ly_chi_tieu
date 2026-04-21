@@ -28,19 +28,19 @@ export function DeleteMemberDialog({
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirm user deletion</AlertDialogTitle>
+          <AlertDialogTitle>Xác nhận xóa thành viên</AlertDialogTitle>
           <AlertDialogDescription>
-          Are you sure you want to delete the user <span className="font-medium">{memberName}</span>?
-          This action cannot be undone.
+            Bạn có chắc chắn muốn xóa thành viên <span className="font-bold text-gray-900">{memberName}</span> khỏi gia đình không? 
+            Hành động này không thể hoàn tác và thành viên này sẽ mất quyền truy cập vào dữ liệu chung.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>Hủy</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Delete
+            Xác nhận xóa
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

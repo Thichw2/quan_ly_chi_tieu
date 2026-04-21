@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -26,12 +28,12 @@ interface Expense {
   date: string
   description: string
 }
-interface Category{
+
+interface Category {
   _id: string,
   name: string,
   family_id: string
 }
-
 
 interface EditExpenseModalProps {
   expense: Partial<Expense>
@@ -57,95 +59,104 @@ export const EditExpenseModal = ({ expense, isOpen, onClose, fetchExpenses }: Ed
 
   const handleGetCategories = async () => {
     try {
-        const data = await getCategories()
-        setCategories(data.data)
+      const data = await getCategories()
+      setCategories(data.data)
     } catch (e) {
-        console.log(e)
+      console.log(e)
     }
   }
+
   useEffect(() => {
     handleGetCategories()
   }, [])
 
   const handleEditExpense = async () => {
     try {
-      await updateExpense(expense._id as string,editedExpense.category_id as string, editedExpense.amount as number, editedExpense.date as string, editedExpense.description as string)
+      await updateExpense(expense._id as string, {
+        category_id: editedExpense.category_id as string | undefined,
+        amount: editedExpense.amount !== undefined ? Number(editedExpense.amount) : undefined,
+        date_str: editedExpense.date as string | undefined,
+        description: editedExpense.description as string | undefined,
+      })
       toast({
-        title: "Sửa Expense thành công!",
+        title: "Cập nhật thành công!",
+        description: "Thông tin chi tiêu đã được thay đổi."
       })
       fetchExpenses()
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
         toast({
           variant: "destructive",
-          title: "Uh oh! Đã có lỗi xảy ra",
-          description: e.response?.data?.detail || "Unknown error",
+          title: "Đã xảy ra lỗi!",
+          description: e.response?.data?.detail || "Không thể cập nhật chi tiêu.",
         });
       } else {
         console.error("An unexpected error occurred:", e);
       }
-  }
-  onClose()
+    }
+    onClose()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log(editedExpense)
-    console.log(expense)
     handleEditExpense()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Expense</DialogTitle>
+          <DialogTitle>Chỉnh sửa chi tiêu</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            {/* Danh mục */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="category" className="text-right">
-                Category
+                Danh mục
               </Label>
               <div className='col-span-3'>
-               <Select 
-                  value={categories.find(cat => cat._id === editedExpense._id)?.name || ''}
+                <Select 
+                  value={categories.find(cat => cat._id === editedExpense.category_id)?.name || editedExpense.category_name || ''}
                   onValueChange={(value) => {
                     const selectedCat = categories.find(cat => cat.name === value);
-                    setEditedExpense({ ...editedExpense, _id: selectedCat?._id })
+                    setEditedExpense({ ...editedExpense, category_id: selectedCat?._id })
                   }}
                 >
-                    <SelectTrigger className='w-full'>
-                    <SelectValue placeholder={expense.category_name} />
-                    </SelectTrigger>
-                    <SelectContent className='w-full'>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue placeholder={expense.category_name || "Chọn danh mục"} />
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectGroup>
-                        {categories.map((category) => (
+                      {categories.map((category) => (
                         <SelectItem key={category._id} value={category.name}> 
-                            {category.name}
+                          {category.name}
                         </SelectItem>
-                        ))}
+                      ))}
                     </SelectGroup>
-                    </SelectContent>
+                  </SelectContent>
                 </Select>
               </div>
-             
             </div>
+
+            {/* Số tiền */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="amount" className="text-right">
-                Amount
+                Số tiền
               </Label>
               <Input
                 id="amount"
                 type="number"
-                value={editedExpense.amount || 0}  // thêm || 0
+                value={editedExpense.amount || 0}
                 onChange={(e) => setEditedExpense({ ...editedExpense, amount: parseFloat(e.target.value) })}
                 className="col-span-3"
               />
             </div>
+
+            {/* Ngày tháng */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="date" className="text-right">
-                Date
+                Ngày
               </Label>
               <Input
                 id="date"
@@ -155,24 +166,30 @@ export const EditExpenseModal = ({ expense, isOpen, onClose, fetchExpenses }: Ed
                 className="col-span-3"
               />
             </div>
+
+            {/* Ghi chú */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
-                Description
+                Ghi chú
               </Label>
               <Input
                 id="description"
-                value={editedExpense.description || ''}  // thêm || ''
+                placeholder="Nhập ghi chú..."
+                value={editedExpense.description || ''}
                 onChange={(e) => setEditedExpense({ ...editedExpense, description: e.target.value })}
                 className="col-span-3"
               />
             </div>
           </div>
+          
           <DialogFooter>
-            <Button type="submit">Save Changes</Button>
+            <Button variant="outline" type="button" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button type="submit">Lưu thay đổi</Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
 }
-

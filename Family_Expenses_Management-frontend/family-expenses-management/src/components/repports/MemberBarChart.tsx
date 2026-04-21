@@ -18,13 +18,13 @@ interface MemberBarChartProps {
 }
 
 export const MemberBarChart: React.FC<MemberBarChartProps> = ({ data }) => {
-  // Gradient definition for bars
+  // Định nghĩa màu Gradient cho các cột
   const gradientColors = {
     start: '#3b82f6', // blue-500
     end: '#60a5fa'    // blue-400
   }
 
-  // Custom tooltip component
+  // Component Tooltip tùy chỉnh (Tiếng Việt)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -35,9 +35,9 @@ export const MemberBarChart: React.FC<MemberBarChartProps> = ({ data }) => {
               className="w-2 h-2 rounded-full"
               style={{ backgroundColor: gradientColors.start }}
             />
-            <span className="text-gray-600">Amount:</span>
-            <span className="font-medium">
-              ${payload[0].value.toLocaleString()}
+            <span className="text-gray-600">Số tiền:</span>
+            <span className="font-medium text-blue-600">
+              {payload[0].value.toLocaleString('vi-VN')} VNĐ
             </span>
           </div>
         </div>
@@ -46,33 +46,36 @@ export const MemberBarChart: React.FC<MemberBarChartProps> = ({ data }) => {
     return null
   }
 
-  // Format large numbers for Y axis
+  // Định dạng số lớn cho trục Y (VNĐ)
   const formatYAxis = (value: number) => {
+    if (value >= 1000000000) {
+      return `${(value / 1000000000).toFixed(1)} tỷ`
+    }
     if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`
+      return `${(value / 1000000).toFixed(1)} tr`
     }
     if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`
+      return `${(value / 1000).toFixed(0)}k`
     }
-    return `$${value}`
+    return value.toString()
   }
 
-  // Calculate maximum value for better Y axis range
-  const maxValue = Math.max(...data.map(item => item.amount))
-  const yAxisMax = Math.ceil(maxValue * 1.1) // Add 10% padding
+  // Tính toán giá trị cao nhất để tạo khoảng trống cho trục Y
+  const maxValue = Math.max(...data.map(item => item.amount), 0)
+  const yAxisMax = Math.ceil(maxValue * 1.1) // Thêm 10% khoảng trống phía trên
 
   return (
-    <div className="w-full h-[400px] p-4 bg-white rounded-xl shadow-sm">
+    <div className="w-full h-[400px] p-4 bg-white rounded-xl shadow-sm border border-gray-100">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
           margin={{
             top: 20,
             right: 30,
-            left: 40,
+            left: 20,
             bottom: 10
           }}
-          barSize={40}
+          barSize={45}
         >
           <defs>
             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -103,19 +106,21 @@ export const MemberBarChart: React.FC<MemberBarChartProps> = ({ data }) => {
             cursor={{ fill: '#f3f4f6' }}
           />
           <Legend 
+            formatter={() => <span className="text-gray-600 text-sm font-medium">Tổng chi tiêu</span>}
             wrapperStyle={{
               paddingTop: '20px'
             }}
           />
           <Bar 
             dataKey="amount"
-            name="Amount"
-            radius={[4, 4, 0, 0]}
+            name="Số tiền"
+            radius={[6, 6, 0, 0]}
           >
             {data.map((_, index) => (
               <Cell 
                 key={`cell-${index}`}
                 fill="url(#barGradient)"
+                className="hover:opacity-80 transition-opacity duration-300"
               />
             ))}
           </Bar>

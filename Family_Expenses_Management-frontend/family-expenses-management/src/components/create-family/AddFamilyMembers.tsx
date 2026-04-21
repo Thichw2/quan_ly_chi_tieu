@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription } from "@/alert"
 
 type Member = {
   id: string;
@@ -45,15 +45,15 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
   const validateField = (name: string, value: string): string => {
     switch (name) {
       case 'fullName':
-        return value.trim().length < 2 ? 'Full name must be at least 2 characters long' : '';
+        return value.trim().length < 2 ? 'Họ và tên phải có ít nhất 2 ký tự' : '';
       case 'username':
-        return !/^[a-zA-Z0-9_]{3,20}$/.test(value) ? 'Username must be 3-20 characters and can only contain letters, numbers, and underscores' : '';
+        return !/^[a-zA-Z0-9_]{3,20}$/.test(value) ? 'Tên đăng nhập từ 3-20 ký tự, chỉ chứa chữ cái, số và dấu gạch dưới' : '';
       case 'email':
-        return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Invalid email address' : '';
+        return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Địa chỉ email không hợp lệ' : '';
       case 'password':
-        return !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(value) ? 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number' : '';
+        return !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(value) ? 'Mật khẩu phải ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số' : '';
       case 'confirmPassword':
-        return value !== newMember.password ? 'Passwords do not match' : '';
+        return value !== newMember.password ? 'Mật khẩu xác nhận không khớp' : '';
       default:
         return '';
     }
@@ -84,9 +84,8 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
       return;
     }
 
-    
     addMember({
-      id: 'hehe',
+      id: Math.random().toString(36).substr(2, 9), // Tạo ID ngẫu nhiên thay vì 'hehe'
       username: newMember.username,
       name: newMember.fullName,
       isNew: true,
@@ -95,6 +94,7 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
       role: newMember.role,
       specificRole: newMember.specificRole
     });
+
     setNewMember({
       username: '',
       email: '',
@@ -106,18 +106,29 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
     })
     setIsDialogOpen(false)
     setErrors({})
-       
+  };
+
+  const translateRole = (role?: string) => {
+    if (role === 'admin') return 'Quản trị viên';
+    if (role === 'member') return 'Thành viên';
+    return role;
+  };
+
+  const translateSpecificRole = (role?: string) => {
+    if (role === 'grandparent') return 'Ông bà';
+    if (role === 'parent') return 'Cha mẹ';
+    return role;
   };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Family Members</h2>
+      <h2 className="text-2xl font-bold">Thành viên gia đình</h2>
       <ul className="space-y-2">
         {members.map((member) => (
-          <li key={member.id} className="flex justify-between items-center p-2 bg-gray-100 rounded">
-            <span>{member.name}</span>
+          <li key={member.id} className="flex justify-between items-center p-2 bg-gray-100 rounded border">
+            <span className="font-medium">{member.name}</span>
             <span className="text-sm text-gray-500">
-              {member.role} - {member.specificRole}
+              {translateRole(member.role)} - {translateSpecificRole(member.specificRole)}
             </span>
           </li>
         ))}
@@ -125,49 +136,59 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
-          <Button>Add New Member</Button>
+          <Button>Thêm thành viên mới</Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add New Family Member</DialogTitle>
+            <DialogTitle>Thêm thành viên mới vào gia đình</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddMember} className="space-y-4">
+            {/* Họ và tên */}
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Họ và tên</Label>
               <Input
                 id="fullName"
                 name="fullName"
+                placeholder="Nguyễn Văn A"
                 value={newMember.fullName}
                 onChange={handleInputChange}
                 required
               />
               {errors.fullName && <p className="text-sm text-red-500">{errors.fullName}</p>}
             </div>
+
+            {/* Tên đăng nhập */}
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
                 id="username"
                 name="username"
+                placeholder="vanna123"
                 value={newMember.username}
                 onChange={handleInputChange}
                 required
               />
               {errors.username && <p className="text-sm text-red-500">{errors.username}</p>}
             </div>
+
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
+                placeholder="vi-du@email.com"
                 value={newMember.email}
                 onChange={handleInputChange}
                 required
               />
               {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
             </div>
+
+            {/* Mật khẩu */}
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Mật khẩu</Label>
               <Input
                 id="password"
                 name="password"
@@ -178,8 +199,10 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
               />
               {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
             </div>
+
+            {/* Xác nhận mật khẩu */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -190,47 +213,52 @@ export default function AddFamilyMembers({ members, addMember }: Props) {
               />
               {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
             </div>
+
+            {/* Quyền hệ thống */}
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">Quyền hệ thống</Label>
               <Select
                 onValueChange={(value) => handleSelectChange('role', value)}
                 value={newMember.role}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder="Chọn quyền" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="admin">Quản trị viên</SelectItem>
+                  <SelectItem value="member">Thành viên thường</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Vai trò gia đình */}
             <div className="space-y-2">
-              <Label htmlFor="specificRole">Specific Role</Label>
+              <Label htmlFor="specificRole">Vai trò trong gia đình</Label>
               <Select
                 onValueChange={(value) => handleSelectChange('specificRole', value)}
                 value={newMember.specificRole}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a specific role" />
+                  <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="grandparent">Grandparent</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
+                  <SelectItem value="grandparent">Ông bà</SelectItem>
+                  <SelectItem value="parent">Cha mẹ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
             {errors.submit && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{errors.submit}</AlertDescription>
               </Alert>
             )}
-            <Button type="submit">Add Member</Button>
+            
+            <Button type="submit" className="w-full">Thêm thành viên</Button>
           </form>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-

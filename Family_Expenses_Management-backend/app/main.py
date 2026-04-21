@@ -12,7 +12,9 @@ from app.db.client import init_db_indexes, client
 from app.routers import auth_router
 from app.routers.family import router as family_router                   # Thêm dòng này
 from app.routers.expense_category import router as expense_category_router # Thêm dòng này
+from app.routers.expense import router as expense_router                 # Thêm dòng này
 from app.routers.user_management import router as user_management_router # Thêm dòng này
+from app.routers.budget import router as budget_router # Thêm dòng này
 app = FastAPI(
     title="Family Expense Manager",
     description="API quản lý chi tiêu gia đình",
@@ -21,7 +23,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], 
+    allow_origins=["http://localhost:5173"], # Cập nhật đúng port 5175 đang chạy
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,7 +35,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth_router)
 app.include_router(family_router)                   # Thêm dòng này
 app.include_router(expense_category_router)         # Thêm dòng này
+app.include_router(expense_router)                  # Thêm dòng này
 app.include_router(user_management_router)          # Thêm dòng này
+app.include_router(budget_router)                   # Thêm dòng này
 @app.on_event("startup")
 async def startup_event():
     await init_db_indexes()

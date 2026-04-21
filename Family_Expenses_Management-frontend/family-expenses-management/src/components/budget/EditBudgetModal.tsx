@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { getCategories, getMemberFamily, UpdateBudget } from '@/service/API';
 import { useToast } from '@/hooks/use-toast';
 import { AxiosError } from 'axios';
+
 interface Budget {
   _id: string;
   amount: string;
@@ -16,8 +17,8 @@ interface Budget {
   month: string;
   user_id?: string;
   fullname?: string;
-  category_id: string,
-  year: string
+  category_id: string;
+  year: string;
   status?: 'approved' | 'pending' | 'rejected';
 }
 
@@ -25,7 +26,7 @@ interface EditBudgetModalProps {
   budget: Budget;
   isOpen: boolean;
   onClose: () => void;
-  fetchBudgets: () => void
+  fetchBudgets: () => void;
 }
 
 const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget, isOpen, onClose }) => {
@@ -42,7 +43,8 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [members, setMembers] = useState<{ _id: string; fullname: string }[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { toast } = useToast()
+  const { toast } = useToast();
+
   useEffect(() => {
     const adminStatus = localStorage.getItem('isAdmin') === 'true';
     setIsAdmin(adminStatus);
@@ -53,38 +55,39 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
   }, []);
 
   useEffect(() => {
-    setEditedBudget(budget)
-  }, [budget])
+    if (budget) {
+      setEditedBudget(budget);
+    }
+  }, [budget]);
 
   const handleUpdateBudget = async () => {
-    console.log(editedBudget)
     try {
-        await UpdateBudget(
-          editedBudget._id as string,
-          editedBudget.user_id as string,
-          editedBudget.category_id as string,
-          editedBudget.amount as string,
-          editedBudget.month as string,
-          editedBudget.year as string
-        )
-        fetchBudgets()
-        toast({
-          title: "Cập nhật thành công!",
-          })
+      await UpdateBudget(
+        editedBudget._id as string,
+        editedBudget.user_id as string,
+        editedBudget.category_id as string,
+        editedBudget.amount as string,
+        editedBudget.month as string,
+        editedBudget.year as string
+      );
+      fetchBudgets();
+      toast({
+        title: "Thành công",
+        description: "Thông tin ngân sách đã được cập nhật thành công!",
+      });
+      onClose();
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
-        console.log(e)
-          // toast({
-          // variant: "destructive",
-          // title: "Uh oh! Đã có lỗi xảy ra",
-          // description: e.response?.data?.detail || "Unknown error",
-          // });
+        toast({
+          variant: "destructive",
+          title: "Lỗi cập nhật",
+          description: e.response?.data?.detail || "Đã xảy ra lỗi không xác định.",
+        });
       } else {
-          console.error("An unexpected error occurred:", e);
+        console.error("An unexpected error occurred:", e);
       }
-  }
-    onClose()
-  }
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -106,20 +109,21 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleUpdateBudget()
+    handleUpdateBudget();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Budget</DialogTitle>
+          <DialogTitle>Chỉnh sửa ngân sách</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            {/* Số tiền */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="amount" className="text-right">
-                Amount
+                Số tiền
               </Label>
               <Input
                 id="amount"
@@ -127,37 +131,42 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
                 value={editedBudget.amount}
                 onChange={(e) => setEditedBudget({ ...editedBudget, amount: e.target.value })}
                 className="col-span-3"
+                placeholder="Nhập số tiền..."
                 required
               />
             </div>
+
+            {/* Danh mục */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="category" className="text-right">
-                Category
+                Danh mục
               </Label>
               <Select 
                 value={categories.find(cat => cat._id === editedBudget.category_id)?.name || ''} 
                 onValueChange={(value) => {
-                    const selectedCat = categories.find(cat => cat.name === value);
-                    if(selectedCat) {
-                        setEditedBudget({ ...editedBudget, category_id: selectedCat?._id })
-                    }
+                  const selectedCat = categories.find(cat => cat.name === value);
+                  if(selectedCat) {
+                    setEditedBudget({ ...editedBudget, category_id: selectedCat._id });
+                  }
                 }}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Chọn danh mục" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category, index) => (
-                    <SelectItem key={index} value={category.name}>
+                  {categories.map((category) => (
+                    <SelectItem key={category._id} value={category.name}>
                       {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Tháng */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="month" className="text-right">
-                Month
+                Tháng
               </Label>
               <Input
                 id="month"
@@ -168,37 +177,41 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
                 required
               />
             </div>
+
+            {/* Thành viên (Chỉ hiện cho Admin) */}
             {isAdmin && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="member" className="text-right">
-                  Member
+                  Thành viên
                 </Label>
                 <Select 
                   value={members.find(member => member._id === editedBudget.user_id)?.fullname || ''} 
                   onValueChange={(value) => {
                     const selectedMember = members.find(member => member.fullname === value);
                     if(selectedMember) {
-                      setEditedBudget({ ...editedBudget, user_id: selectedMember._id })
+                      setEditedBudget({ ...editedBudget, user_id: selectedMember._id });
                     }
                   }}
                 >
                   <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select member" />
+                    <SelectValue placeholder="Chọn thành viên" />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((member, index) => (
-                      <SelectItem key={index} value={member.fullname}>
+                    {members.map((member) => (
+                      <SelectItem key={member._id} value={member.fullname}>
                         {member.fullname}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button type="submit">Save Changes</Button>
+            <Button variant="outline" type="button" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button type="submit">Lưu thay đổi</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -207,4 +220,3 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
 };
 
 export default EditBudgetModal;
-

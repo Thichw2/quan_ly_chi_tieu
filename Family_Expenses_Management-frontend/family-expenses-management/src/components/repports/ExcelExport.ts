@@ -1,3 +1,5 @@
+'use client';
+
 import { utils, writeFile, WorkBook } from 'xlsx';
 
 interface OverviewData {
@@ -41,81 +43,82 @@ export const exportToExcel = (
   try {
     const workbook: WorkBook = utils.book_new();
 
-    // Format numbers to 2 decimal places
+    // Định dạng số về 2 chữ số thập phân
     const formatNumber = (num: number): number => Number(num.toFixed(2));
 
-    // Monthly Data Sheet with formatted numbers
+    // 1. Trang tính Dữ liệu theo tháng
     const formattedMonthlyData = monthlyData.monthlyData.map(item => ({
-      ...item,
-      expenses: formatNumber(item.expenses),
-      budget: formatNumber(item.budget),
-      savings: formatNumber(item.savings)
+      'Tháng': item.month,
+      'Chi tiêu': formatNumber(item.expenses),
+      'Ngân sách': formatNumber(item.budget),
+      'Tiết kiệm': formatNumber(item.savings)
     }));
     const monthlyWorksheet = utils.json_to_sheet(formattedMonthlyData);
-    utils.book_append_sheet(workbook, monthlyWorksheet, 'Monthly Data');
+    utils.book_append_sheet(workbook, monthlyWorksheet, 'Dữ liệu hàng tháng');
 
-    // Category Data Sheet
+    // 2. Trang tính Dữ liệu theo danh mục
     const formattedCategoryData = overviewData.categoryData.map(item => ({
-      Category: item.name,
-      Amount: formatNumber(item.value)
+      'Danh mục': item.name,
+      'Số tiền': formatNumber(item.value)
     }));
     const categoryWorksheet = utils.json_to_sheet(formattedCategoryData);
-    utils.book_append_sheet(workbook, categoryWorksheet, 'Category Data');
+    utils.book_append_sheet(workbook, categoryWorksheet, 'Dữ liệu danh mục');
 
-    // Member Data Sheet
+    // 3. Trang tính Dữ liệu thành viên
     const formattedMemberData = overviewData.memberData.map(item => ({
-      Member: item.name,
-      Amount: formatNumber(item.amount)
+      'Thành viên': item.name,
+      'Tổng chi tiêu': formatNumber(item.amount)
     }));
     const memberWorksheet = utils.json_to_sheet(formattedMemberData);
-    utils.book_append_sheet(workbook, memberWorksheet, 'Member Data');
+    utils.book_append_sheet(workbook, memberWorksheet, 'Dữ liệu thành viên');
 
-    // Recent Expenses Sheet
+    // 4. Trang tính Chi tiêu gần đây
     const formattedExpenses = overviewData.recentExpenses.map(item => ({
-      Name: item.name,
-      Amount: formatNumber(item.amount),
-      Category: item.category,
-      Member: item.member
+      'Tên khoản chi': item.name,
+      'Số tiền': formatNumber(item.amount),
+      'Danh mục': item.category,
+      'Người chi': item.member
     }));
     const expensesWorksheet = utils.json_to_sheet(formattedExpenses);
-    utils.book_append_sheet(workbook, expensesWorksheet, 'Recent Expenses');
+    utils.book_append_sheet(workbook, expensesWorksheet, 'Chi tiêu gần đây');
 
-    // Members Detail Sheet
+    // 5. Trang tính Chi tiết thành viên
     const membersDetailData = Object.entries(membersData.members).flatMap(([member, data]) =>
       data.categoryData.map(category => ({
-        Member: member,
-        Category: category.name,
-        Amount: formatNumber(category.value),
-        'Total Budget': formatNumber(data.totalBudget),
-        'Total Spent': formatNumber(data.totalSpent),
-        'Remaining': formatNumber(data.totalBudget - data.totalSpent),
-        'Spend %': formatNumber((data.totalSpent / data.totalBudget) * 100)
+        'Thành viên': member,
+        'Danh mục': category.name,
+        'Số tiền chi lẻ': formatNumber(category.value),
+        'Tổng ngân sách': formatNumber(data.totalBudget),
+        'Tổng đã chi': formatNumber(data.totalSpent),
+        'Còn lại': formatNumber(data.totalBudget - data.totalSpent),
+        '% Đã dùng': formatNumber((data.totalSpent / data.totalBudget) * 100)
       }))
     );
     const membersDetailWorksheet = utils.json_to_sheet(membersDetailData);
-    utils.book_append_sheet(workbook, membersDetailWorksheet, 'Members Detail');
+    utils.book_append_sheet(workbook, membersDetailWorksheet, 'Chi tiết thành viên');
 
-    // Summary Sheet
+    // 6. Trang tính Tổng hợp (Summary)
     const summaryData = [
-      { Metric: 'Total Budget', Value: formatNumber(overviewData.totalBudget) },
-      { Metric: 'Total Spent', Value: formatNumber(overviewData.totalSpent) },
+      { 'Chỉ số': 'Tổng ngân sách', 'Giá trị': formatNumber(overviewData.totalBudget) },
+      { 'Chỉ số': 'Tổng đã chi', 'Giá trị': formatNumber(overviewData.totalSpent) },
       { 
-        Metric: 'Remaining', 
-        Value: formatNumber(overviewData.totalBudget - overviewData.totalSpent) 
+        'Chỉ số': 'Còn lại', 
+        'Giá trị': formatNumber(overviewData.totalBudget - overviewData.totalSpent) 
       },
       { 
-        Metric: 'Spend Percentage', 
-        Value: formatNumber((overviewData.totalSpent / overviewData.totalBudget) * 100) 
+        'Chỉ số': 'Tỷ lệ chi tiêu (%)', 
+        'Giá trị': formatNumber((overviewData.totalSpent / overviewData.totalBudget) * 100) 
       }
     ];
     const summaryWorksheet = utils.json_to_sheet(summaryData);
-    utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+    utils.book_append_sheet(workbook, summaryWorksheet, 'Tổng hợp chung');
 
-    // Generate Excel file with current timestamp
-    const timestamp = new Date().toISOString().split('T')[0];
-    writeFile(workbook, `Financial_Report_${timestamp}.xlsx`);
+    // Xuất file Excel với dấu thời gian hiện tại
+    const timestamp = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-');
+    writeFile(workbook, `Bao_cao_tai_chinh_${timestamp}.xlsx`);
+    
   } catch (error) {
-    console.error('Error exporting to Excel:', error);
-    throw new Error('Failed to export Excel file');
+    console.error('Lỗi khi xuất file Excel:', error);
+    throw new Error('Không thể xuất file Excel');
   }
 };

@@ -1,16 +1,26 @@
 'use client';
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import React from 'react';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 
 interface Budget {
-    _id: string;
-    amount: string;
-    category_name: string;
-    month: string;
-    user_id?: string;
-    fullname?: string;
-    category_id: string
-    year: string
+  _id: string;
+  amount: string;
+  category_name: string;
+  month: string;
+  user_id?: string;
+  fullname?: string;
+  category_id: string;
+  year: string;
   status?: 'approved' | 'pending' | 'rejected';
 }
 
@@ -26,15 +36,22 @@ const DeleteBudgetDialog: React.FC<DeleteBudgetDialogProps> = ({ budget, isOpen,
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure you want to delete this budget?</AlertDialogTitle>
+          <AlertDialogTitle>Bạn có chắc chắn muốn xóa ngân sách này không?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the budget for {budget.category_name} 
-            with an amount of {budget.amount} for {budget.month}.
+            Hành động này không thể hoàn tác. Điều này sẽ xóa vĩnh viễn ngân sách cho danh mục 
+            <strong> {budget.category_name} </strong> 
+            với số tiền là <strong> {budget.amount} </strong> 
+            cho <strong> tháng {budget.month} </strong>.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
+          <AlertDialogCancel onClick={onClose}>Hủy bỏ</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={onDelete}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Xác nhận xóa
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -42,4 +59,3 @@ const DeleteBudgetDialog: React.FC<DeleteBudgetDialogProps> = ({ budget, isOpen,
 };
 
 export default DeleteBudgetDialog;
-

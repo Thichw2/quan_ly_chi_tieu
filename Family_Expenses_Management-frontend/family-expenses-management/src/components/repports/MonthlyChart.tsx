@@ -22,28 +22,28 @@ interface MonthlyChartProps {
 }
 
 export const MonthlyChart: React.FC<MonthlyChartProps> = ({ data }) => {
-  // Custom styles for better visibility
+  // Màu sắc đặc trưng cho biểu đồ
   const chartColors = {
-    expenses: "#ef4444",  // red-500
-    budget: "#22c55e",    // green-500
-    savings: "#3b82f6"    // blue-500
+    expenses: "#ef4444",  // Đỏ - Chi tiêu
+    budget: "#22c55e",    // Xanh lá - Ngân sách
+    savings: "#3b82f6"    // Xanh dương - Tiết kiệm
   }
 
-  // Custom tooltip component
+  // Component Tooltip tùy chỉnh (Tiếng Việt)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-          <p className="font-medium text-gray-900 mb-2">{label}</p>
+          <p className="font-bold text-gray-900 mb-2 border-b pb-1">{label}</p>
           {payload.map((item: any, index: number) => (
-            <div key={index} className="flex items-center gap-2">
+            <div key={index} className="flex items-center gap-3 py-1">
               <div 
                 className="w-3 h-3 rounded-full" 
                 style={{ backgroundColor: item.color }}
               />
-              <span className="text-gray-600">{item.name}:</span>
-              <span className="font-medium">
-                ${item.value.toLocaleString()}
+              <span className="text-gray-600 min-w-[80px]">{item.name}:</span>
+              <span className="font-semibold text-gray-900">
+                {item.value.toLocaleString('vi-VN')} VNĐ
               </span>
             </div>
           ))}
@@ -53,65 +53,81 @@ export const MonthlyChart: React.FC<MonthlyChartProps> = ({ data }) => {
     return null
   }
 
+  // Hàm định dạng trục Y (Ví dụ: 1tr, 2tr...)
+  const formatYAxis = (value: number) => {
+    if (value >= 1000000) return `${value / 1000000}tr`
+    if (value >= 1000) return `${value / 1000}k`
+    return value.toString()
+  }
+
   return (
-    <div className="w-full h-[400px] p-4">
+    <div className="w-full h-[400px] p-4 bg-white rounded-xl">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={data}
           margin={{
             top: 20,
             right: 30,
-            left: 20,
+            left: 10,
             bottom: 10
           }}
         >
           <CartesianGrid 
             strokeDasharray="3 3" 
-            stroke="#e5e7eb" 
+            stroke="#f0f0f0" 
+            vertical={false}
           />
           <XAxis 
             dataKey="month" 
-            tick={{ fill: '#6b7280' }}
+            tick={{ fill: '#6b7280', fontSize: 12 }}
             axisLine={{ stroke: '#d1d5db' }}
+            tickLine={false}
           />
           <YAxis
-            tick={{ fill: '#6b7280' }}
+            tick={{ fill: '#6b7280', fontSize: 12 }}
             axisLine={{ stroke: '#d1d5db' }}
-            tickFormatter={(value) => `$${value}`}
+            tickLine={false}
+            tickFormatter={formatYAxis}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 
+            verticalAlign="top"
+            align="right"
+            iconType="circle"
             wrapperStyle={{
-              paddingTop: '20px'
+              paddingBottom: '20px',
+              fontSize: '13px'
             }}
           />
           <Line
             type="monotone"
             dataKey="expenses"
+            name="Chi tiêu"
             stroke={chartColors.expenses}
-            strokeWidth={2}
-            dot={{ fill: chartColors.expenses }}
-            activeDot={{ r: 6 }}
+            strokeWidth={3}
+            dot={{ fill: chartColors.expenses, r: 4 }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
           />
           <Line
             type="monotone"
             dataKey="budget"
+            name="Ngân sách"
             stroke={chartColors.budget}
-            strokeWidth={2}
-            dot={{ fill: chartColors.budget }}
-            activeDot={{ r: 6 }}
+            strokeWidth={3}
+            dot={{ fill: chartColors.budget, r: 4 }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
           />
           <Line
             type="monotone"
             dataKey="savings"
+            name="Tiết kiệm"
             stroke={chartColors.savings}
-            strokeWidth={2}
-            dot={{ fill: chartColors.savings }}
-            activeDot={{ r: 6 }}
+            strokeWidth={3}
+            dot={{ fill: chartColors.savings, r: 4 }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
           />
         </LineChart>
       </ResponsiveContainer>
     </div>
   )
 }
-

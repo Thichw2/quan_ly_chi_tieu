@@ -40,19 +40,24 @@ export function RegistrationSuccessDialog({ isOpen, onClose }: RegistrationSucce
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
-            Đăng ký thành công
+          <DialogTitle className="flex items-center gap-2 text-green-600">
+            <CheckCircle2 className="h-6 w-6" />
+            Đăng ký thành công!
           </DialogTitle>
-          <DialogDescription>
-            Tài khoản của bạn đã được tạo thành công. Bạn có thể đăng nhập ngay bây giờ.
+          <DialogDescription className="pt-2">
+            Tài khoản của bạn đã được tạo thành công trên hệ thống. 
+            Giờ đây bạn đã có thể bắt đầu quản lý chi tiêu gia đình.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          <Button onClick={handleGoToLogin}>Đi đến trang đăng nhập</Button>
+        <DialogFooter className="mt-4">
+          <Button 
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700" 
+            onClick={handleGoToLogin}
+          >
+            Đăng nhập ngay
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
-

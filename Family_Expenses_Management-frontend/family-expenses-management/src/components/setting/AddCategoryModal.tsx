@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -6,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { CreateCategories } from '@/service/API'
 import { useToast } from "@/hooks/use-toast"
 import { AxiosError } from 'axios'
-
+import { Loader2 } from 'lucide-react'
 
 interface AddCategoryModalProps {
   isOpen: boolean
@@ -17,34 +19,51 @@ interface AddCategoryModalProps {
 export const AddCategoryModal = ({ isOpen, onClose, fetchCategories }: AddCategoryModalProps) => {
   const { toast } = useToast()
   const [categoryName, setCategoryName] = useState<string>('')
-    const handleCreateCategory = async () => {
-        try {
-            await CreateCategories(categoryName)
-            toast({
-                title: "Tạo danh mục mới thành công!",
-              })
-              fetchCategories()
-        }catch (e: unknown) {
-            if (e instanceof AxiosError) {
-              toast({
-                variant: "destructive",
-                title: "Uh oh! Đã có lỗi xảy ra",
-                description: e.response?.data?.detail || "Unknown error",
-              });
-            } else {
-              console.error("An unexpected error occurred:", e);
-            }
-        }
-    } 
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+
+  const handleCreateCategory = async () => {
+    if (!categoryName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi nhập liệu",
+        description: "Vui lòng nhập tên danh mục.",
+      });
+      return;
+    }
+
+    setIsLoading(true)
+    try {
+      await CreateCategories(categoryName)
+      toast({
+        title: "Thành công!",
+        description: "Đã tạo danh mục mới thành công.",
+      })
+      fetchCategories()
+      setCategoryName('') // Reset field sau khi thành công
+      onClose()
+    } catch (e: unknown) {
+      if (e instanceof AxiosError) {
+        toast({
+          variant: "destructive",
+          title: "Đã có lỗi xảy ra",
+          description: e.response?.data?.detail || "Không thể tạo danh mục lúc này.",
+        });
+      } else {
+        console.error("An unexpected error occurred:", e);
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     handleCreateCategory()
-    onClose()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Thêm danh mục mới</DialogTitle>
         </DialogHeader>
@@ -56,19 +75,25 @@ export const AddCategoryModal = ({ isOpen, onClose, fetchCategories }: AddCatego
               </Label>
               <Input
                 id="name"
+                placeholder="Ví dụ: Ăn uống, Di chuyển..."
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 className="col-span-3"
+                disabled={isLoading}
               />
             </div>
-            
           </div>
           <DialogFooter>
-            <Button type="submit">Thêm danh mục</Button>
+            <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
+              Hủy
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Tạo danh mục
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
 }
-

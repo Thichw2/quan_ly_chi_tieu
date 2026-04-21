@@ -38,50 +38,52 @@ async def register(
     username: str = Form(...),
     password: str = Form(...),
     email: str = Form(...),
-    role: str = Form(...),
-    specific_role: str = Form(None)
+    role: str = Form(...),          # Nhận: "admin" hoặc "member"
+    specific_role: str = Form(...)  # Nhận: "father", "mother", "child", "other"
 ):
-    # 1. Kiểm tra tồn tại
-    existing_user = await users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
+    # 1. Kiểm tra tài khoản tồn tại
+    existing_user = await users_collection.find_one({
+        "$or": [{"username": username}, {"email": email}]
+    })
     if existing_user:
         detail = "Tên đăng nhập đã tồn tại" if existing_user["username"] == username else "Email đã tồn tại"
         raise HTTPException(status_code=400, detail=detail)
 
-    # 2. Tạo mã OTP 6 số
+    # 2. Chuẩn bị dữ liệu lưu trữ
     otp_code = str(random.randint(100000, 999999))
+    hashed_pwd = hash_password(password) # Giả định bạn đã có hàm hash_password
     
-    # 3. Hash mật khẩu và chuẩn bị dữ liệu
-    hashed_pwd = hash_password(password)
     user_dict = {
         "fullname": fullname,
         "username": username,
         "password": hashed_pwd,
         "email": email,
-        "role": role,
-        "specific_role": specific_role,
-        "family_id": None,
-        "is_active": False,
+        "role": role,                 # Lưu quyền hệ thống
+        "specific_role": specific_role, # Lưu vị trí trong gia đình
+        "family_id": None,            # Sẽ cập nhật sau khi tạo gia đình
+        "is_active": False,           # Chờ xác nhận OTP
         "otp_code": otp_code,
         "created_at": datetime.utcnow(),
         "notification_settings": {"email": True, "system": True}
     }
 
-    # 4. Lưu vào DB
+    # 3. Lưu vào MongoDB
     try:
         result = await users_collection.insert_one(user_dict)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi lưu dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Lỗi cơ sở dữ liệu: {str(e)}")
     
-    # 5. Gửi Email xác thực
-    # Sử dụng background task hoặc try-except để tránh treo app nếu mail server lỗi
+    # 4. Gửi Email (Background Task)
     try:
-        await send_verify_email(email, otp_code)
+        await send_verify_email(email, otp_code) # Giả định hàm gửi mail đã có
     except Exception as e:
-        print(f"Send mail error: {e}")
-        # Không raise lỗi ở đây để user vẫn được tạo, nhưng báo họ kiểm tra lại sau
-        return {"message": "Đăng ký thành công nhưng gửi mail lỗi. Vui lòng liên hệ hỗ trợ.", "user_id": str(result.inserted_id)}
+        print(f"Gửi mail lỗi: {e}")
+        return {
+            "message": "Đăng ký thành công nhưng không gửi được mail. Vui lòng thử lại sau.",
+            "user_id": str(result.inserted_id)
+        }
 
-    return {"message": "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã xác thực."}
+    return {"message": "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP."}
 
 @router.post("/verify-email")
 async def verify_email(
