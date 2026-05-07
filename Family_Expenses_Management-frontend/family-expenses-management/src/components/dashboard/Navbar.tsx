@@ -2,6 +2,7 @@
 
 import { useNavigate, useLocation } from 'react-router-dom'
 import UserMenu from './UserMenu'
+import NotificationBell from './NotificationBell'
 
 import {
   Breadcrumb,
@@ -63,6 +64,7 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center space-x-4">
+          <NotificationBell />
           <UserMenu />
         </div>
       </div>

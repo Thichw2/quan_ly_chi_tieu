@@ -133,14 +133,25 @@ export async function updateBudget(budgetId: string, updateData: { user_id?: str
   return await axios.put(`${apiUrl}/budgets/${budgetId}`, params, { headers: { ...getAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } });
 }
 // Small mock for RequestBudget (not supported by backend yet)
-export async function GetFamilyData() { return await axios.get(`${apiUrl}/expenses/family-data`, { headers: getAuthHeader() }); }
+export async function GetFamilyData(month?: number, year?: number) { 
+  let url = `${apiUrl}/expenses/family-data`;
+  const params = new URLSearchParams();
+  if (month) params.append('month', month.toString());
+  if (year) params.append('year', year.toString());
+  if (params.toString()) url += `?${params.toString()}`;
+  return await axios.get(url, { headers: getAuthHeader() }); 
+}
 // Ví dụ trong file service/API.ts
 
 
-export async function getMemberData () {
+export async function getMemberData (month?: number, year?: number) {
     const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/expenses/member-data`,
+    let url = `${apiUrl}/expenses/member-data`;
+    const params = new URLSearchParams();
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    if (params.toString()) url += `?${params.toString()}`;
+    const response = await axios.get(url,
     {
         headers: {
             'accept': 'application/json',
@@ -150,10 +161,14 @@ export async function getMemberData () {
     return response
 }
 
-export async function getBudgets () {
+export async function getBudgets (month?: number, year?: number) {
     const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/budgets`,
+    let url = `${apiUrl}/budgets`;
+    const params = new URLSearchParams();
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    if (params.toString()) url += `?${params.toString()}`;
+    const response = await axios.get(url,
     {
         headers: {
             'accept': 'application/json',
@@ -162,10 +177,14 @@ export async function getBudgets () {
     })
     return response
 }
-export async function getExpenses () {
+export async function getExpenses (month?: number, year?: number) {
     const access_token = localStorage.getItem("access_token")
-    const response = await axios.get(`
-    ${apiUrl}/expenses`,
+    let url = `${apiUrl}/expenses`;
+    const params = new URLSearchParams();
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    if (params.toString()) url += `?${params.toString()}`;
+    const response = await axios.get(url,
     {
         headers: {
             'accept': 'application/json',
@@ -175,17 +194,34 @@ export async function getExpenses () {
     return response
 }
 
-export async function createNewExpenses(categoryId: string, amount: number, date_str: string, description: string) {
+export async function checkBudget(categoryId: string, amount: number, dateStr: string, targetUserId?: string) {
+  const params: Record<string, string> = {
+    category_id: categoryId,
+    amount: amount.toString(),
+    date_str: dateStr,
+  };
+  if (targetUserId) params.target_user_id = targetUserId;
+
+  const response = await axios.get(`${apiUrl}/expenses/check-budget`, {
+    params,
+    headers: getAuthHeader(),
+  });
+  return response;
+}
+
+export async function createNewExpenses(categoryId: string, amount: number, date_str: string, description: string, targetUserId?: string) {
     const access_token = localStorage.getItem("access_token");
     const newAmount = amount.toString()
+    const params: Record<string, string> = {
+      category_id: categoryId,
+      amount: newAmount,
+      date_str: date_str,
+      description: description,
+    };
+    if (targetUserId) params.target_user_id = targetUserId;
     const response = await axios.post(
       `${apiUrl}/expenses/`,
-      new URLSearchParams({
-        category_id: categoryId,
-        amount: newAmount,
-        date_str: date_str,
-        description: description,
-      }).toString(),
+      new URLSearchParams(params).toString(),
       {
         headers: {
           'accept': 'application/json',
@@ -367,10 +403,11 @@ export async function RequestBudget(categoryId: string, period:string, amount:st
     return response;
 }
 
-export async function GetMonthlyData () {
+export async function GetMonthlyData (year?: number) {
     const access_token = localStorage.getItem("access_token");
-    const response = await axios.get(`
-    ${apiUrl}/expenses/monthly-data`,
+    let url = `${apiUrl}/expenses/monthly-data`;
+    if (year) url += `?year=${year}`;
+    const response = await axios.get(url,
     {
         headers: {
             'accept': 'application/json',
@@ -458,3 +495,24 @@ export async function RejectBudget (requestId: string) {
 //     );
 //     return response
 // }
+
+// --- NOTIFICATIONS ---
+export async function getNotifications() {
+    return await axios.get(`${apiUrl}/notifications/`, { headers: getAuthHeader() });
+}
+
+export async function getUnreadNotificationCount() {
+    return await axios.get(`${apiUrl}/notifications/unread-count`, { headers: getAuthHeader() });
+}
+
+export async function markNotificationRead(notificationId: string) {
+    return await axios.put(`${apiUrl}/notifications/${notificationId}/read`, {}, { headers: getAuthHeader() });
+}
+
+export async function markAllNotificationsRead() {
+    return await axios.put(`${apiUrl}/notifications/read-all`, {}, { headers: getAuthHeader() });
+}
+
+export async function deleteNotificationApi(notificationId: string) {
+    return await axios.delete(`${apiUrl}/notifications/${notificationId}`, { headers: getAuthHeader() });
+}

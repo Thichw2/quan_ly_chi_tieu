@@ -1,31 +1,16 @@
 import random
 import string
-from fastapi import APIRouter, HTTPException, status, Depends, Form
-from jose import JWTError, jwt
-from app.core.utils import get_current_user, oauth2_scheme, send_verify_email, send_reset_email # Import hàm gửi mail mới
-from app.core.security import hash_password, verify_password, create_access_token
-from app.db import users_collection, token_blacklist_collection
-from app.models.user import User
-from bson import ObjectId
-from datetime import datetime, timedelta
-from app.core.config import settings
-
-router = APIRouter(
-    prefix="/auth",
-    tags=["Authentication"],
-)
-
-import random
-import string
-from fastapi import APIRouter, HTTPException, status, Depends, Form
-from jose import JWTError, jwt
-from app.core.utils import get_current_user, oauth2_scheme, send_verify_email
-from app.core.security import hash_password, verify_password, create_access_token
-from app.db import users_collection, token_blacklist_collection
-from app.models.user import User
-from bson import ObjectId
-from datetime import datetime
 import asyncio
+from datetime import datetime, timedelta
+from fastapi import APIRouter, HTTPException, status, Depends, Form
+from jose import JWTError, jwt
+from bson import ObjectId
+
+from app.core.utils import get_current_user, oauth2_scheme, send_verify_email, send_reset_email
+from app.core.security import hash_password, verify_password, create_access_token
+from app.db import users_collection, token_blacklist_collection
+from app.models.user import User
+from app.core.config import settings
 
 router = APIRouter(
     prefix="/auth",
@@ -51,7 +36,7 @@ async def register(
 
     # 2. Chuẩn bị dữ liệu lưu trữ
     otp_code = str(random.randint(100000, 999999))
-    hashed_pwd = hash_password(password) # Giả định bạn đã có hàm hash_password
+    hashed_pwd = hash_password(password[:72])
     
     user_dict = {
         "fullname": fullname,

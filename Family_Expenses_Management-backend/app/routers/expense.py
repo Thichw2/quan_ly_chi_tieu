@@ -6,8 +6,9 @@ from typing import Dict, List, Optional
 from datetime import datetime, date, timedelta
 from fastapi.encoders import jsonable_encoder
 from app.core.utils import get_current_user, send_email
+from app.core.email_templates import budget_exceeded_user_template, budget_exceeded_admin_template
 from app.models.user import User
-from app.db import expenses_collection, expense_categories_collection, users_collection, budgets_collection, families_collection
+from app.db import expenses_collection, expense_categories_collection, users_collection, budgets_collection, families_collection, notifications_collection
 from app.schemas.expense import ExpenseOut
 from app.core.config import settings
 from app.schemas.family_data import CategoryData, FamilyData, MemberSpentData, RecentExpense
@@ -19,16 +20,112 @@ router = APIRouter(
     tags=["Expenses"]
 )
 
+
+async def _push_notification(user_id: str, title: str, message: str, ntype: str, related_id: str = None):
+    """Helper nội bộ để ghi thông báo vào DB."""
+    await notifications_collection.insert_one({
+        "user_id": user_id,
+        "title": title,
+        "message": message,
+        "type": ntype,
+        "is_read": False,
+        "created_at": datetime.utcnow(),
+        "related_id": related_id,
+    })
+
+
+@router.get("/check-budget")
+async def check_budget_before_expense(
+    category_id: str,
+    amount: float,
+    date_str: str,
+    target_user_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Kiểm tra ngân sách trước khi tạo chi tiêu.
+    Trả về thông tin ngân sách, tổng chi tiêu hiện tại, và liệu có vượt ngân sách không.
+    """
+    try:
+        expense_date = date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format (YYYY-MM-DD)")
+
+    # Xác định user thực sự
+    if target_user_id and target_user_id != str(current_user.id):
+        owner_id = target_user_id
+    else:
+        owner_id = str(current_user.id)
+
+    # Tìm ngân sách chính xác cho user + category + tháng/năm
+    budget = await budgets_collection.find_one({
+        "category_id": category_id,
+        "family_id": str(current_user.family_id),
+        "user_id": owner_id,
+        "month": expense_date.month,
+        "year": expense_date.year,
+    })
+
+    if not budget:
+        return {
+            "has_budget": False,
+            "budget_amount": 0,
+            "current_spent": 0,
+            "new_total": amount,
+            "would_exceed": False,
+            "category_name": "",
+        }
+
+    budget_amount = budget["amount"]
+
+    # Tính tổng chi tiêu hiện tại trong tháng
+    start_date = datetime(expense_date.year, expense_date.month, 1)
+    end_date = datetime(
+        expense_date.year + (1 if expense_date.month == 12 else 0),
+        1 if expense_date.month == 12 else expense_date.month + 1, 1
+    )
+    pipeline = [
+        {
+            "$match": {
+                "category_id": category_id,
+                "user_id": owner_id,
+                "date": {"$gte": start_date, "$lt": end_date}
+            }
+        },
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]
+    agg_result = await expenses_collection.aggregate(pipeline).to_list(length=1)
+    current_spent = agg_result[0]["total"] if agg_result else 0.0
+    new_total = current_spent + amount
+
+    # Lấy tên danh mục
+    category_doc = await expense_categories_collection.find_one({"_id": ObjectId(category_id)})
+    cat_name = category_doc.get("name", "") if category_doc else ""
+
+    return {
+        "has_budget": True,
+        "budget_amount": budget_amount,
+        "current_spent": current_spent,
+        "new_total": new_total,
+        "would_exceed": new_total > budget_amount,
+        "category_name": cat_name,
+    }
+
+
 @router.post("/", response_model=ExpenseOut, status_code=status.HTTP_201_CREATED)
 async def create_expense(
     category_id: str = Form(...),
     amount: float = Form(...),
     date_str: str = Form(...),  # Nhận ngày dưới dạng string (YYYY-MM-DD)
     description: Optional[str] = Form(None),
+    target_user_id: Optional[str] = Form(None),  # Admin có thể chỉ định thành viên
     current_user: User = Depends(get_current_user)
 ):
     """
-    Tạo một khoản chi tiêu mới và gửi email thông báo nếu tổng chi vượt ngân sách.
+    Tạo một khoản chi tiêu mới.
+    - Admin có thể tạo cho bất kỳ thành viên nào trong gia đình qua target_user_id.
+    - Member chỉ tạo được cho bản thân.
+    - Gửi thông báo in-app và email khi vượt ngân sách.
     """
     # Chuyển đổi date_str thành datetime
     try:
@@ -37,34 +134,71 @@ async def create_expense(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format (YYYY-MM-DD)")
 
-    # Tìm ngân sách cho danh mục
+    # Xác định user thực sự của expense
+    if target_user_id and target_user_id != str(current_user.id):
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Chỉ admin mới có thể thêm chi tiêu cho thành viên khác.")
+        # Kiểm tra target_user thuộc cùng gia đình
+        if not ObjectId.is_valid(target_user_id):
+            raise HTTPException(status_code=400, detail="Invalid target user ID format.")
+        target_user = await users_collection.find_one(
+            {"_id": ObjectId(target_user_id), "family_id": current_user.family_id}
+        )
+        if not target_user:
+            raise HTTPException(status_code=404, detail="Thành viên không tồn tại trong gia đình.")
+        expense_owner_id = target_user_id
+        expense_owner = target_user
+    else:
+        expense_owner_id = str(current_user.id)
+        expense_owner = None  # sẽ dùng current_user
+
+    # Tìm ngân sách cho danh mục (theo user + tháng/năm cụ thể của chi tiêu)
     budget = await budgets_collection.find_one({
         "category_id": category_id,
-        "family_id": str(current_user.family_id)
+        "family_id": str(current_user.family_id),
+        "user_id": expense_owner_id,
+        "month": expense_date.month,
+        "year": expense_date.year,
     })
 
-    # Gửi email yêu cầu tạo ngân sách nếu không tìm thấy
+    # Gửi thông báo yêu cầu tạo ngân sách nếu không tìm thấy
     if not budget:
-        admin1 = await users_collection.find_one({"family_id": current_user.family_id, "role": "admin"})
+        admin_user = await users_collection.find_one({"family_id": current_user.family_id, "role": "admin"})
         category = await expense_categories_collection.find_one({"_id": ObjectId(category_id)})
-        subject = "Yêu Cầu Tạo Ngân Sách"
-        body = (f"Người dùng '{current_user.username}' đã yêu cầu tạo ngân sách cho danh mục '{category.get('name', 'Unknown Category')}' "
-                f"Vui lòng kiểm tra yêu cầu này.")
-        send_email(admin1["email"], subject, body)
-        raise HTTPException(status_code=400, detail="Invalid budget for category. You sent an email to admin to create budget for this category.")
-
+        cat_name = category.get('name', 'Unknown Category') if category else 'Unknown Category'
+        if admin_user:
+            subject = "Yêu Cầu Tạo Ngân Sách"
+            body = (f"Người dùng '{current_user.username}' đã yêu cầu tạo ngân sách cho danh mục '{cat_name}'. "
+                    f"Vui lòng kiểm tra yêu cầu này.")
+            # Kiểm tra notification_settings trước khi gửi email
+            admin_notif_settings = admin_user.get("notification_settings", {})
+            if admin_notif_settings.get("email", True):
+                await send_email(admin_user["email"], subject, body)
+            # Thông báo in-app cho admin
+            await _push_notification(
+                str(admin_user["_id"]),
+                "Yêu cầu tạo ngân sách",
+                f"{current_user.fullname} yêu cầu tạo ngân sách cho danh mục '{cat_name}'.",
+                "budget_request"
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Danh mục này chưa có ngân sách. Đã gửi thông báo tới admin."
+        )
 
     expected_amount = budget["amount"]
 
-    # Tính tổng chi tiêu hiện tại
+    # Tính tổng chi tiêu hiện tại cho owner
     start_date = datetime(expense_date.year, expense_date.month, 1)
-    end_date = datetime(expense_date.year + (1 if expense_date.month == 12 else 0), 
-                        1 if expense_date.month == 12 else expense_date.month + 1, 1)
+    end_date = datetime(
+        expense_date.year + (1 if expense_date.month == 12 else 0),
+        1 if expense_date.month == 12 else expense_date.month + 1, 1
+    )
     pipeline = [
         {
             "$match": {
                 "category_id": category_id,
-                "user_id": str(current_user.id),
+                "user_id": expense_owner_id,
                 "date": {"$gte": start_date, "$lt": end_date}
             }
         },
@@ -74,69 +208,164 @@ async def create_expense(
     current_total = agg_result[0]["total"] if agg_result else 0.0
     new_total = current_total + amount
 
-    # Gửi email nếu vượt ngân sách
-    if new_total > expected_amount:
-        subject = "Thông Báo Vượt Mức Chi Tiêu"
-        if current_user.role == "admin":
-            body = f"Bạn đã tạo một khoản chi tiêu với tổng {new_total}, vượt ngân sách {expected_amount}."
-            send_email(current_user.email, subject, body)
-        else:
-            user_body = f"Tổng chi tiêu của bạn là {new_total}, vượt ngân sách {expected_amount}."
-            admin = await users_collection.find_one({"family_id": current_user.family_id, "role": "admin"})
-            send_email(current_user.email, subject, user_body)
-            if admin and admin["email"] != current_user.email:
-                admin_body = f"Người dùng {current_user.username} có tổng chi tiêu {new_total} vượt ngân sách {expected_amount}."
-                send_email(admin["email"], subject, admin_body)
-
     # Thêm chi tiêu vào database
+    category_info = await expense_categories_collection.find_one({"_id": ObjectId(category_id)})
+    cat_name = category_info.get("name", "Unknown") if category_info else "Unknown"
+
     expense_data = {
         "category_id": category_id,
-        "user_id": str(current_user.id),
+        "user_id": expense_owner_id,
         "amount": amount,
         "date": expense_datetime,
         "description": description
     }
     result = await expenses_collection.insert_one(expense_data)
     new_expense = await expenses_collection.find_one({"_id": result.inserted_id})
+    expense_id_str = str(result.inserted_id)
 
     # Bổ sung thông tin category_name và fullname
-    category = await expense_categories_collection.find_one({"_id": ObjectId(category_id)})
-    if category:
-        new_expense["category_name"] = category.get("name", "Unknown Category")
+    new_expense["category_name"] = cat_name
+    if expense_owner:  # admin tạo cho member khác
+        new_expense["fullname"] = expense_owner.get("fullname", "Unknown")
+        # Thông báo cho member bị thêm chi tiêu
+        await _push_notification(
+            expense_owner_id,
+            "Chi tiêu mới được thêm",
+            f"Admin đã thêm khoản chi tiêu {amount:,.0f} đ cho danh mục '{cat_name}'.",
+            "expense_added",
+            expense_id_str
+        )
     else:
-        new_expense["category_name"] = "Unknown Category"
+        new_expense["fullname"] = current_user.fullname
 
-    new_expense["fullname"] = current_user.fullname  # Sử dụng thông tin từ current_user
+    # Gửi thông báo nếu vượt ngân sách
+    if new_total > expected_amount:
+        subject = "⚠️ Thông Báo Vượt Mức Chi Tiêu"
+        owner_id_str = expense_owner_id
+        owner_email = expense_owner["email"] if expense_owner else current_user.email
+        owner_name = expense_owner.get("fullname", expense_owner.get("username")) if expense_owner else current_user.fullname
+        expense_month = expense_date.month
+        expense_year = expense_date.year
+        fmt_total = f"{new_total:,.0f} đ"
+        fmt_budget = f"{expected_amount:,.0f} đ"
+
+        # Thông báo in-app cho owner
+        await _push_notification(
+            owner_id_str,
+            "⚠️ Vượt mức chi tiêu!",
+            f"Tổng chi tiêu danh mục '{cat_name}' tháng này là {fmt_total}, vượt ngân sách {fmt_budget}.",
+            "budget_exceeded",
+            expense_id_str
+        )
+
+        if current_user.role == "admin":
+            # Admin tạo expense → gửi email cho admin
+            html_body = budget_exceeded_user_template(
+                user_name=current_user.fullname,
+                category_name=cat_name,
+                current_total=fmt_total,
+                budget_amount=fmt_budget,
+                month=expense_month,
+                year=expense_year,
+            )
+            owner_notif = await users_collection.find_one({"_id": ObjectId(str(current_user.id))})
+            if owner_notif and owner_notif.get("notification_settings", {}).get("email", True):
+                await send_email(current_user.email, subject, html_body)
+        else:
+            # Member tạo expense → gửi email cho member + admin
+            # Email cho member
+            owner_doc = expense_owner if expense_owner else await users_collection.find_one({"_id": ObjectId(expense_owner_id)})
+            owner_notif_settings = owner_doc.get("notification_settings", {}) if owner_doc else {}
+            if owner_notif_settings.get("email", True):
+                user_html = budget_exceeded_user_template(
+                    user_name=owner_name,
+                    category_name=cat_name,
+                    current_total=fmt_total,
+                    budget_amount=fmt_budget,
+                    month=expense_month,
+                    year=expense_year,
+                )
+                await send_email(owner_email, subject, user_html)
+
+            # Email cho admin
+            admin = await users_collection.find_one({"family_id": current_user.family_id, "role": "admin"})
+            if admin and admin["email"] != owner_email:
+                admin_notif_settings = admin.get("notification_settings", {})
+                if admin_notif_settings.get("email", True):
+                    admin_html = budget_exceeded_admin_template(
+                        admin_name=admin.get("fullname", "Admin"),
+                        member_name=owner_name,
+                        category_name=cat_name,
+                        current_total=fmt_total,
+                        budget_amount=fmt_budget,
+                        month=expense_month,
+                        year=expense_year,
+                    )
+                    await send_email(admin["email"], subject, admin_html)
+                # Thông báo in-app cho admin
+                await _push_notification(
+                    str(admin["_id"]),
+                    "⚠️ Thành viên vượt ngân sách",
+                    f"{owner_name} vượt ngân sách danh mục '{cat_name}': {fmt_total} / {fmt_budget}.",
+                    "budget_exceeded",
+                    expense_id_str
+                )
+
     new_expense["_id"] = str(new_expense["_id"])  # Chuyển ObjectId sang string
-
     return ExpenseOut(**new_expense)
 
 
 
 @router.get("/", response_model=List[ExpenseOut])
-async def get_expenses(current_user: User = Depends(get_current_user)):
+async def get_expenses(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Lấy danh sách tất cả các khoản chi tiêu của người dùng hiện tại, bao gồm tên danh mục và người dùng.
+    Lấy danh sách chi tiêu:
+    - Admin: xem toàn bộ chi tiêu của gia đình.
+    - Member: chỉ xem chi tiêu của bản thân.
     """
     expenses = []
-    cursor = expenses_collection.find({"user_id": str(current_user.id)})
+
+    if current_user.role == "admin":
+        # Lấy tất cả user_id trong cùng gia đình
+        family_users = await users_collection.find(
+            {"family_id": current_user.family_id}
+        ).to_list(None)
+        family_user_ids = [str(u["_id"]) for u in family_users]
+        query = {"user_id": {"$in": family_user_ids}}
+    else:
+        query = {"user_id": str(current_user.id)}
+
+    if month is not None and year is not None:
+        start_date = datetime(year, month, 1)
+        end_date = datetime(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+        query["date"] = {"$gte": start_date, "$lt": end_date}
+    elif year is not None:
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year + 1, 1, 1)
+        query["date"] = {"$gte": start_date, "$lt": end_date}
+
+    cursor = expenses_collection.find(query).sort("date", -1)
 
     async for exp in cursor:
         exp["_id"] = str(exp["_id"])
         exp["date"] = exp["date"].isoformat()  # Chuyển datetime thành string ISO
 
         # Lấy tên danh mục
-        category = await expense_categories_collection.find_one({"_id": ObjectId(exp["category_id"])})
-        if category:
-            exp["category_name"] = category.get("name", "Unknown")
-        else:
+        try:
+            category = await expense_categories_collection.find_one({"_id": ObjectId(exp["category_id"])})
+            exp["category_name"] = category.get("name", "Unknown") if category else "Unknown"
+        except Exception:
             exp["category_name"] = "Unknown"
 
         # Lấy tên người dùng
-        user = await users_collection.find_one({"_id": ObjectId(exp["user_id"])})
-        if user:
-            exp["fullname"] = user.get("fullname", "Unknown")
-        else:
+        try:
+            user = await users_collection.find_one({"_id": ObjectId(exp["user_id"])})
+            exp["fullname"] = user.get("fullname", "Unknown") if user else "Unknown"
+        except Exception:
             exp["fullname"] = "Unknown"
 
         expenses.append(ExpenseOut(**exp))
@@ -231,7 +460,11 @@ from typing import List
 # Giả định các Schema và Collection đã được import đúng
 
 @router.get("/family-data", response_model=FamilyData)
-async def get_family_data(current_user: User = Depends(get_current_user)):
+async def get_family_data(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user)
+):
     raw_family_id = current_user.family_id
     if not raw_family_id:
         raise HTTPException(status_code=400, detail="Người dùng chưa thuộc gia đình nào.")
@@ -239,7 +472,8 @@ async def get_family_data(current_user: User = Depends(get_current_user)):
     # Ép kiểu family_id sang string để khớp với bảng budgets
     family_id_str = str(raw_family_id)
     now = datetime.utcnow()
-    current_month, current_year = now.month, now.year
+    current_month = month if month else now.month
+    current_year = year if year else now.year
     
     # 1. Map thông tin User & Category
     users = await users_collection.find({"family_id": raw_family_id}).to_list(None)
@@ -318,7 +552,11 @@ async def get_family_data(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/member-data", response_model=MemberDataMap)
-async def get_member_data(current_user: User = Depends(get_current_user)):
+async def get_member_data(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user)
+):
     """
     Lấy dữ liệu chi tiết về từng thành viên trong gia đình, bao gồm ngân sách, tổng chi tiêu và chi tiêu theo danh mục.
     """
@@ -339,8 +577,8 @@ async def get_member_data(current_user: User = Depends(get_current_user)):
     
     # 3. Lấy budgets cho từng thành viên trong tháng và năm hiện tại
     now = datetime.utcnow()
-    current_month = now.month
-    current_year = now.year
+    current_month = month if month else now.month
+    current_year = year if year else now.year
     
     budgets_cursor = budgets_collection.find({
         "family_id": family_id,

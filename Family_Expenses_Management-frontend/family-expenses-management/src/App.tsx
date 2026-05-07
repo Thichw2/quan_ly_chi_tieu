@@ -16,6 +16,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import { Toaster } from './components/ui/toaster';
 import AcceptInvitePage from './components/setting/AcceptInvite';
 import ResetPassword from './pages/ResetPassword';
+import ErrorBoundary from './components/ErrorBoundary';
 function CreateFamilyDialog() {
   const navigate = useNavigate();
   const family_id = localStorage.getItem('family_id');
@@ -96,11 +97,23 @@ function AppContent() {
 }
 
 function App() {
+  // Bắt lỗi async toàn cục (Promise rejections không được catch)
+  useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      console.error('[Global] Unhandled promise rejection:', event.reason);
+      event.preventDefault(); // Ngăn trang crash
+    };
+    window.addEventListener('unhandledrejection', handler);
+    return () => window.removeEventListener('unhandledrejection', handler);
+  }, []);
+
   return (
-    <Router>
-      <AppContent />
-      <Toaster /> {/* Thêm dòng này ở đây */}
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AppContent />
+        <Toaster /> {/* Thêm dòng này ở đây */}
+      </Router>
+    </ErrorBoundary>
   );
 }
 

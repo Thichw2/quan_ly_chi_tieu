@@ -12,6 +12,20 @@ import { getBudgets, deleteBudget, BugetPending, ApproveBudget, RejectBudget } f
 import { useToast } from '@/hooks/use-toast';
 import { AxiosError } from 'axios';
 
+// Dịch lỗi backend sang tiếng Việt
+const translateError = (detail?: string): string => {
+  if (!detail) return "Lỗi không xác định. Vui lòng thử lại.";
+  const map: Record<string, string> = {
+    "Only admin can create budgets.": "Chỉ quản trị viên mới có thể tạo ngân sách.",
+    "Budget not found.": "Không tìm thấy ngân sách.",
+    "Budget này đã có expense, không thể xóa.": "Ngân sách này đã có chi tiêu, không thể xóa.",
+    "Insufficient permissions": "Bạn không có quyền thực hiện thao tác này.",
+    "Không tìm thấy yêu cầu.": "Không tìm thấy yêu cầu ngân sách.",
+    "Yêu cầu đã được xử lý.": "Yêu cầu này đã được xử lý trước đó.",
+  };
+  return map[detail] || detail;
+};
+
 interface Budget {
   _id: string;
   amount: string;
@@ -38,9 +52,12 @@ interface BudgetRequest {
 
 interface BudgetManagementProps {
   getBudget: (budget: Budget[]) => void;
+  selectedMonth: number;
+  selectedYear: number;
+  isReadOnly?: boolean;
 }
 
-const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
+const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget, selectedMonth, selectedYear, isReadOnly }) => {
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -57,40 +74,47 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
       fetchBudgets();
       toast({ title: "Xóa ngân sách thành công!" });
     } catch (e: unknown) {
-      if (e instanceof AxiosError) {
-        toast({
-          variant: "destructive",
-          title: "Đã xảy ra lỗi",
-          description: e.response?.data?.detail || "Lỗi không xác định",
-        });
-      }
+      const msg = e instanceof AxiosError
+        ? translateError(e.response?.data?.detail)
+        : "Có lỗi xảy ra khi xóa ngân sách.";
+      toast({ variant: "destructive", title: "Đã xảy ra lỗi", description: msg });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   useEffect(() => {
     const adminStatus = localStorage.getItem('isAdmin') === 'true';
     setIsAdmin(adminStatus);
-    fetchBudgets();
-    getBudgetPending();
+    if (adminStatus) {
+      getBudgetPending();
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBudgets();
+  }, [selectedMonth, selectedYear]);
 
   const getBudgetPending = async () => {
     try {
       const data = await BugetPending();
-      setBudgetPending(data.data);
+      setBudgetPending(data.data || []);
     } catch (e) {
-      console.log(e);
+      // Admin 403 hoặc lỗi mạng — không crash, chỉ set rỗng
+      setBudgetPending([]);
     }
   };
 
   const fetchBudgets = async () => {
     try {
-      const data = await getBudgets();
-      setBudgets(data.data);
-      getBudget(data.data);
+      const data = await getBudgets(selectedMonth, selectedYear);
+      const budgetData = data.data || [];
+      setBudgets(budgetData);
+      getBudget(budgetData);
     } catch (error) {
       console.error('Lỗi khi tải danh sách ngân sách:', error);
+      setBudgets([]);
+      getBudget([]);
     }
   };
 
@@ -103,15 +127,13 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
       fetchBudgets();
       getBudgetPending();
     } catch (e: unknown) {
-      if (e instanceof AxiosError) {
-        toast({
-          variant: "destructive",
-          title: "Không thể phê duyệt",
-          description: e.response?.data?.detail || "Lỗi hệ thống",
-        });
-      }
+      const msg = e instanceof AxiosError
+        ? translateError(e.response?.data?.detail)
+        : "Không thể phê duyệt yêu cầu.";
+      toast({ variant: "destructive", title: "Không thể phê duyệt", description: msg });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleReject = async (id: string) => {
@@ -120,20 +142,16 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
     try {
       await RejectBudget(id);
       toast({ title: "Đã từ chối yêu cầu ngân sách" });
-    } catch (e: unknown) {
-      if (e instanceof AxiosError) {
-        toast({
-          variant: "destructive",
-          title: "Có lỗi xảy ra",
-          description: e.response?.data?.detail || "Lỗi hệ thống",
-        });
-      }
-    }
-    setTimeout(() => {
       fetchBudgets();
       getBudgetPending();
-    }, 1000);
-    setIsLoading(false);
+    } catch (e: unknown) {
+      const msg = e instanceof AxiosError
+        ? translateError(e.response?.data?.detail)
+        : "Có lỗi khi từ chối yêu cầu.";
+      toast({ variant: "destructive", title: "Có lỗi xảy ra", description: msg });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const translateStatus = (status?: string) => {
@@ -149,7 +167,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{isAdmin ? 'Quản lý ngân sách' : 'Ngân sách của tôi'}</CardTitle>
-        <Button disabled={isLoading} onClick={() => setIsAddModalOpen(true)}>
+        <Button disabled={isLoading || isReadOnly} onClick={() => setIsAddModalOpen(true)}>
           {isAdmin ? 'Thêm ngân sách' : 'Yêu cầu ngân sách'}
         </Button>
       </CardHeader>
@@ -161,7 +179,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
               <TableHead>Danh mục</TableHead>
               <TableHead>Tháng</TableHead>
               {isAdmin && <TableHead>Thành viên</TableHead>}
-              {isAdmin && <TableHead>Thao tác</TableHead>}
+              {isAdmin && !isReadOnly && <TableHead>Thao tác</TableHead>}
               {isAdmin && <TableHead>Trạng thái</TableHead>}
             </TableRow>
           </TableHeader>
@@ -173,20 +191,22 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
                 <TableCell>{budget.category_name}</TableCell>
                 <TableCell>{budget.month}</TableCell>
                 <TableCell>{budget.fullname}</TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    {budget.status === 'pending' && (
-                      <>
-                        <Button disabled={isLoading} onClick={() => handleApprove(budget._id)} size="sm" className="bg-green-600 hover:bg-green-700">
-                          Duyệt
-                        </Button>
-                        <Button disabled={isLoading} onClick={() => handleReject(budget._id)} variant="destructive" size="sm">
-                          Từ chối
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
+                {!isReadOnly && (
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      {budget.status === 'pending' && (
+                        <>
+                          <Button disabled={isLoading} onClick={() => handleApprove(budget._id)} size="sm" className="bg-green-600 hover:bg-green-700">
+                            Duyệt
+                          </Button>
+                          <Button disabled={isLoading} onClick={() => handleReject(budget._id)} variant="destructive" size="sm">
+                            Từ chối
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell>{translateStatus(budget.status)}</TableCell>
               </TableRow>
             ))}
@@ -198,7 +218,7 @@ const BudgetManagement: React.FC<BudgetManagementProps> = ({ getBudget }) => {
                 <TableCell>{budget.category_name}</TableCell>
                 <TableCell>{budget.month}</TableCell>
                 {isAdmin && <TableCell>{budget.fullname}</TableCell>}
-                {isAdmin && (
+                {isAdmin && !isReadOnly && (
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button disabled={isLoading} onClick={() => setEditingBudget(budget)} variant="outline" size="sm">

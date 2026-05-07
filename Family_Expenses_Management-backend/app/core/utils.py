@@ -103,23 +103,33 @@ async def send_reset_email(email_to: str, reset_link: str):
     fm = FastMail(conf)
     await fm.send_message(message)
 
-async def send_email(to_email: str, subject: str, body: str):
+def _send_email_sync(to_email: str, subject: str, body: str, content_type: str = "html"):
+    """Gửi email đồng bộ qua SMTP (chạy trong thread pool)."""
     from_email = settings.EMAIL_USER
     password = settings.EMAIL_PASSWORD
 
-    msg = MIMEMultipart()
-    msg['From'] = from_email
+    msg = MIMEMultipart("alternative")
+    msg['From'] = f"Family Expense <{from_email}>"
     msg['To'] = to_email
     msg['Subject'] = subject
 
-    msg.attach(MIMEText(body, 'plain'))
+    msg.attach(MIMEText(body, content_type, "utf-8"))
 
+    server = smtplib.SMTP(settings.EMAIL_SERVER, settings.EMAIL_PORT)
+    server.starttls()
+    server.login(from_email, password)
+    server.sendmail(from_email, to_email, msg.as_string())
+    server.quit()
+
+
+async def send_email(to_email: str, subject: str, body: str, content_type: str = "html"):
+    """
+    Gửi email bất đồng bộ (chạy SMTP trong thread pool để không block event loop).
+    Hỗ trợ cả HTML và plain text qua tham số content_type.
+    """
+    import asyncio
     try:
-        server = smtplib.SMTP(settings.EMAIL_SERVER, settings.EMAIL_PORT)
-        server.starttls()
-        server.login(from_email, password)
-        text = msg.as_string()
-        server.sendmail(from_email, to_email, text)
-        server.quit()
+        await asyncio.to_thread(_send_email_sync, to_email, subject, body, content_type)
+        print(f"[EMAIL] Sent '{subject}' to {to_email}")
     except Exception as e:
-        print(f"Failed to send email to {to_email}: {e}")
+        print(f"[EMAIL ERROR] Failed to send email to {to_email}: {e}")

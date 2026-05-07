@@ -36,7 +36,12 @@ export default function Dashboard() {
   const [selectedMember, setSelectedMember] = useState<'Family' | keyof MemberDataMap>('Family');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showEmptyDataDialog, setShowEmptyDataDialog] = useState(false);
-  
+
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+
   const navigate = useNavigate();
 
   // Dữ liệu hiển thị dựa trên thành viên được chọn
@@ -56,12 +61,12 @@ export default function Dashboard() {
   // Thống kê danh mục chi tiêu nhiều nhất
   const topCategoryStats = useMemo(() => {
     if (!categoryData.length) return { name: 'N/A', percentage: '0' };
-    
+
     const totalValue = categoryData.reduce((sum, cat) => sum + cat.value, 0);
-    const maxCategory = categoryData.length > 0 
+    const maxCategory = categoryData.length > 0
       ? categoryData.reduce((prev, curr) => curr.value > prev.value ? curr : prev)
       : { name: 'N/A', value: 0 };
-    
+
     return {
       name: maxCategory.name,
       percentage: ((maxCategory.value / totalValue) * 100).toFixed(1)
@@ -97,8 +102,8 @@ export default function Dashboard() {
     try {
       setIsLoading(true);
       const [familyResponse, memberResponse] = await Promise.all([
-        GetFamilyData(),
-        getMemberData()
+        GetFamilyData(selectedMonth, selectedYear),
+        getMemberData(selectedMonth, selectedYear)
       ]);
 
       const fData = familyResponse.data;
@@ -119,7 +124,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedMonth, selectedYear]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -136,22 +141,52 @@ export default function Dashboard() {
       <main className="container mx-auto p-4 lg:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Bảng điều khiển gia đình</h1>
-          <Select 
-            onValueChange={(value) => setSelectedMember(value as 'Family' | keyof MemberDataMap)} 
-            defaultValue="Family"
-          >
-            <SelectTrigger className="w-[220px] bg-white shadow-sm">
-              <SelectValue placeholder="Chọn thành viên" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Family">Cả gia đình</SelectItem>
-              {Object.keys(memberData).map((memberKey) => (
-                <SelectItem value={memberKey} key={memberKey}>
-                  {memberKey}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2 items-center">
+            <Select
+              onValueChange={(value) => setSelectedMonth(Number(value))}
+              value={selectedMonth.toString()}
+            >
+              <SelectTrigger className="w-[110px] bg-white shadow-sm">
+                <SelectValue placeholder="Tháng" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <SelectItem key={m} value={m.toString()}>Tháng {m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              onValueChange={(value) => setSelectedYear(Number(value))}
+              value={selectedYear.toString()}
+            >
+              <SelectTrigger className="w-[120px] bg-white shadow-sm">
+                <SelectValue placeholder="Năm" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 14 }, (_, i) => currentYear - 5 + i).map(y => (
+                  <SelectItem key={y} value={y.toString()}>Năm {y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              onValueChange={(value) => setSelectedMember(value as 'Family' | keyof MemberDataMap)}
+              value={selectedMember}
+            >
+              <SelectTrigger className="w-[180px] bg-white shadow-sm">
+                <SelectValue placeholder="Chọn thành viên" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Family">Cả gia đình</SelectItem>
+                {Object.keys(memberData).map((memberKey) => (
+                  <SelectItem value={memberKey} key={memberKey}>
+                    {memberKey}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Thẻ thống kê */}

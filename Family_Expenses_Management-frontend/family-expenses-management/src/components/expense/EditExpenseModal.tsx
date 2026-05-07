@@ -72,12 +72,13 @@ export const EditExpenseModal = ({ expense, isOpen, onClose, fetchExpenses }: Ed
 
   const handleEditExpense = async () => {
     try {
-      await updateExpense(expense._id as string, {
-        category_id: editedExpense.category_id as string | undefined,
-        amount: editedExpense.amount !== undefined ? Number(editedExpense.amount) : undefined,
-        date_str: editedExpense.date as string | undefined,
-        description: editedExpense.description as string | undefined,
-      })
+      await updateExpense(
+        expense._id as string,
+        editedExpense.category_id as string,
+        editedExpense.amount !== undefined ? Number(editedExpense.amount) : 0,
+        (editedExpense.date || '').split('T')[0],
+        editedExpense.description || '',
+      )
       toast({
         title: "Cập nhật thành công!",
         description: "Thông tin chi tiêu đã được thay đổi."
@@ -91,7 +92,11 @@ export const EditExpenseModal = ({ expense, isOpen, onClose, fetchExpenses }: Ed
           description: e.response?.data?.detail || "Không thể cập nhật chi tiêu.",
         });
       } else {
-        console.error("An unexpected error occurred:", e);
+        toast({
+          variant: "destructive",
+          title: "Lỗi không xác định",
+          description: "Có lỗi xảy ra khi cập nhật chi tiêu. Vui lòng thử lại.",
+        });
       }
     }
     onClose()

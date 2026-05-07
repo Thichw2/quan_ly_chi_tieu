@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Trash2, Users, Settings as SettingsIcon, Loader2 } from 'lucide-react';
 import RegistrationDialog from '@/components/setting/RegistrationDialog';
 import { deleteMemberApi, getMemberFamily } from '@/service/API';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -17,7 +18,6 @@ import {
 import { DeleteMemberDialog } from '@/components/setting/DeleteMember';
 import { CategoryManagement } from '@/components/setting/CategoryManagement';
 import { toast } from '@/hooks/use-toast';
-import { Badge } from "@/components/ui/badge";
 
 interface Member {
   id: string;
@@ -32,6 +32,8 @@ export default function Settings() {
   const [members, setMembers] = useState<Member[]>([]);
   const [deletingMember, setDeletingMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const familyId = localStorage.getItem("family_id");
 
   // Sử dụng useCallback để tránh re-render hàm không cần thiết
   const handleGetFamilyMember = useCallback(async () => {
@@ -39,17 +41,17 @@ export default function Settings() {
     try {
       const response = await getMemberFamily();
       const data = response?.data || response;
-      
+
       // Xử lý dữ liệu mảng an toàn
       const mappedMembers = Array.isArray(data) ? data.map((item: any) => ({
-        id: item.id || item._id, 
+        id: item.id || item._id,
         fullname: item.fullname || 'Chưa đặt tên',
         username: item.username || '',
         role: item.role || 'member',
         email: item.email || '',
         specific_role: item.specific_role || 'Thành viên'
       })) : [];
-      
+
       setMembers(mappedMembers);
     } catch (e) {
       console.error("Lỗi lấy danh sách:", e);
@@ -65,19 +67,19 @@ export default function Settings() {
 
   const handleDeleteConfirm = async () => {
     if (!deletingMember) return;
-    
+
     try {
       await deleteMemberApi(deletingMember.id);
-      toast({ 
-        title: "Thành công", 
-        description: `Đã xóa thành viên ${deletingMember.fullname} khỏi gia đình.` 
+      toast({
+        title: "Thành công",
+        description: `Đã xóa thành viên ${deletingMember.fullname} khỏi gia đình.`
       });
       handleGetFamilyMember(); // Cập nhật lại danh sách
     } catch (error) {
-      toast({ 
-        variant: "destructive", 
-        title: "Lỗi thực thi", 
-        description: "Bạn không có quyền hoặc gặp lỗi khi xóa thành viên này." 
+      toast({
+        variant: "destructive",
+        title: "Lỗi thực thi",
+        description: "Bạn không có quyền hoặc gặp lỗi khi xóa thành viên này."
       });
     } finally {
       setDeletingMember(null);
@@ -85,8 +87,23 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    handleGetFamilyMember();
-  }, [handleGetFamilyMember]);
+    if (familyId && familyId !== 'null') {
+      handleGetFamilyMember();
+    }
+  }, [handleGetFamilyMember, familyId]);
+
+  if (!familyId || familyId === 'null') {
+    return (
+      <div className="h-full max-h-[calc(100vh-64px)] overflow-auto bg-slate-50/50 flex flex-col items-center justify-center space-y-4 p-8">
+        <Users className="w-16 h-16 text-slate-300" />
+        <h2 className="text-2xl font-bold text-slate-700">Bạn chưa thiết lập gia đình</h2>
+        <p className="text-muted-foreground text-center max-w-md">Vui lòng tạo một gia đình để bắt đầu quản lý tài chính, thêm thành viên và theo dõi các khoản chi tiêu.</p>
+        <Button onClick={() => navigate('/create-family')} size="lg" className="mt-4 bg-indigo-600 hover:bg-indigo-700">
+          Tạo gia đình mới
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full max-h-[calc(100vh-64px)] overflow-auto bg-slate-50/50">
@@ -142,14 +159,14 @@ export default function Settings() {
                         <TableCell className="text-slate-500">{member.username}</TableCell>
                         <TableCell className="text-center">
                           <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
-  {member.role}
-</span>
+                            {member.role}
+                          </span>
                         </TableCell>
                         <TableCell className="text-slate-500">{member.email}</TableCell>
                         <TableCell>
-                           <span className="text-sm font-medium bg-blue-50 text-blue-700 px-2 py-1 rounded-md capitalize">
-                             {member.specific_role}
-                           </span>
+                          <span className="text-sm font-medium bg-blue-50 text-blue-700 px-2 py-1 rounded-md capitalize">
+                            {member.specific_role}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

@@ -8,6 +8,7 @@ import ExpenseList from '@/components/expenses-budget/ExpenseList'
 import { AddExpenseModal } from '@/components/expense/AddExpenseModal'
 import { Button } from "@/components/ui/button"
 import { Plus, Wallet, AlertCircle } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Expense {
   _id: string
@@ -31,13 +32,20 @@ interface Budget {
 }
 
 const Expenses = () => {
+  const currentMonth = new Date().getMonth() + 1
+  const currentYear = new Date().getFullYear()
+
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth)
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
 
-  // Lấy tháng và năm hiện tại để hiển thị tiêu đề
-  const currentMonth = new Date().getMonth() + 1
-  const currentYear = new Date().getFullYear()
+  const isPastMonth = useMemo(() => {
+    if (selectedYear < currentYear) return true;
+    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
+    return false;
+  }, [selectedMonth, selectedYear, currentMonth, currentYear]);
 
   // Định dạng tiền tệ cho VNĐ
   const formatCurrency = (value: number) => {
@@ -49,7 +57,7 @@ const Expenses = () => {
 
   const fetchBudgets = async () => {
     try {
-      const data = await getBudgets()
+      const data = await getBudgets(selectedMonth, selectedYear)
       // Đảm bảo lấy đúng mảng dữ liệu dù API trả về data.data hay data
       const budgetData = data.data || data || []
       setBudgets(budgetData)
@@ -60,7 +68,7 @@ const Expenses = () => {
 
   const fetchExpenses = async () => {
     try {
-      const data = await getExpenses()
+      const data = await getExpenses(selectedMonth, selectedYear)
       const expenseData = data.data || data || []
       setExpenses(expenseData)
     } catch (e) {
@@ -71,7 +79,7 @@ const Expenses = () => {
   useEffect(() => {
     fetchExpenses()
     fetchBudgets()
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   // Logic tính toán: Đã sửa để khớp với logic file Budget của Tiến
   const { totalExpenses, totalBudget, percentage, isOverBudget } = useMemo(() => {
@@ -96,16 +104,44 @@ const Expenses = () => {
     <div className="h-full max-h-[calc(100vh-64px)] overflow-auto bg-gray-50/50">
       <main className="container mx-auto p-4 md:p-8">
         {/* Phần Tiêu đề */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Quản lý chi tiêu</h1>
             <p className="text-muted-foreground text-sm italic">
-              Dữ liệu tổng hợp hệ thống (Tháng {currentMonth}/{currentYear})
+              Dữ liệu tổng hợp hệ thống (Tháng {selectedMonth}/{selectedYear})
             </p>
           </div>
-          <Button onClick={() => setIsAddModalOpen(true)} className="shadow-sm bg-blue-600 hover:bg-blue-700">
-            <Plus className="mr-2 h-4 w-4" /> Thêm chi tiêu
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Select onValueChange={(value) => setSelectedMonth(Number(value))} value={selectedMonth.toString()}>
+              <SelectTrigger className="w-[110px] bg-white shadow-sm">
+                <SelectValue placeholder="Tháng" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <SelectItem key={m} value={m.toString()}>Tháng {m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select onValueChange={(value) => setSelectedYear(Number(value))} value={selectedYear.toString()}>
+              <SelectTrigger className="w-[120px] bg-white shadow-sm">
+                <SelectValue placeholder="Năm" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 10 }, (_, i) => currentYear - 5 + i).map(y => (
+                  <SelectItem key={y} value={y.toString()}>Năm {y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button 
+              onClick={() => setIsAddModalOpen(true)} 
+              className="shadow-sm bg-blue-600 hover:bg-blue-700"
+              disabled={isPastMonth}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Thêm chi tiêu
+            </Button>
+          </div>
         </div>
 
         {/* Thẻ So sánh Ngân sách */}
@@ -160,8 +196,7 @@ const Expenses = () => {
             <ExpenseList 
               fetchExpenses={fetchExpenses}
               expenses={expenses} 
-              onEdit={fetchExpenses} 
-              onDelete={fetchExpenses} 
+              isReadOnly={isPastMonth}
             />
         </div>
 

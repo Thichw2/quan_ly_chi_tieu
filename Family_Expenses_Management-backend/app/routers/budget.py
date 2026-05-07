@@ -2,8 +2,9 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Form
 from bson import ObjectId
 from typing import List, Optional
+from datetime import datetime
 from app.core.utils import get_current_user, check_role
-from app.db import budgets_collection,  expense_categories_collection, users_collection, expenses_collection
+from app.db import budgets_collection, expense_categories_collection, users_collection, expenses_collection, notifications_collection
 from app.models.user import User
 from app.schemas.budget import BudgetOut
 
@@ -51,8 +52,33 @@ async def create_budget(
         "month": month,
         "year": year
     })
+
     if existing_budget:
-        raise HTTPException(status_code=400, detail="Budget for this category and user already exists for the specified month and year.")
+        # Nếu đã tồn tại → cộng thêm số tiền vào ngân sách hiện có
+        old_amount = existing_budget.get("amount", 0)
+        new_amount = old_amount + amount
+        await budgets_collection.update_one(
+            {"_id": existing_budget["_id"]},
+            {"$set": {"amount": new_amount}}
+        )
+        updated_budget = await budgets_collection.find_one({"_id": existing_budget["_id"]})
+        updated_budget["_id"] = str(updated_budget["_id"])
+        updated_budget["category_name"] = category.get("name", "Unknown Category")
+        updated_budget["fullname"] = user.get("fullname", "Unknown User")
+
+        # Gửi thông báo in-app cho thành viên (nếu khác admin)
+        if user_id != str(current_user.id):
+            await notifications_collection.insert_one({
+                "user_id": user_id,
+                "title": "💰 Ngân sách được tăng thêm",
+                "message": f"Admin đã tăng ngân sách danh mục '{category.get('name', '')}' thêm {amount:,.0f} đ (tổng: {new_amount:,.0f} đ) tháng {month}/{year}.",
+                "type": "budget_approved",
+                "is_read": False,
+                "created_at": datetime.utcnow(),
+                "related_id": str(existing_budget["_id"]),
+            })
+
+        return BudgetOut(**updated_budget)
 
     # Tạo dictionary ngân sách mới
     budget_data = {
@@ -73,16 +99,36 @@ async def create_budget(
     new_budget["category_name"] = category.get("name", "Unknown Category")
     new_budget["fullname"] = user.get("fullname", "Unknown User")
 
+    # Gửi thông báo in-app cho thành viên (nếu khác admin)
+    if user_id != str(current_user.id):
+        await notifications_collection.insert_one({
+            "user_id": user_id,
+            "title": "💰 Ngân sách mới được thiết lập",
+            "message": f"Admin đã thiết lập ngân sách {amount:,.0f} đ cho danh mục '{category.get('name', '')}' tháng {month}/{year}.",
+            "type": "budget_approved",
+            "is_read": False,
+            "created_at": datetime.utcnow(),
+            "related_id": str(result.inserted_id),
+        })
+
     return BudgetOut(**new_budget)
 
 
 
 @router.get("/", response_model=List[BudgetOut])
-async def get_budgets(current_user: User = Depends(get_current_user)):
+async def get_budgets(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user)
+):
     """
     Lấy danh sách ngân sách của gia đình, bao gồm tên danh mục và tên người dùng (nếu có).
     """
     query = {"family_id": current_user.family_id}
+    if month is not None:
+        query["month"] = month
+    if year is not None:
+        query["year"] = year
     budgets = []
 
     async for b in budgets_collection.find(query):

@@ -78,13 +78,26 @@ const EditBudgetModal: React.FC<EditBudgetModalProps> = ({ fetchBudgets, budget,
       onClose();
     } catch (e: unknown) {
       if (e instanceof AxiosError) {
+        const detail = e.response?.data?.detail;
+        const errorMap: Record<string, string> = {
+          "Only admin can update budgets.": "Chỉ quản trị viên mới được chỉnh sửa ngân sách.",
+          "Budget not found.": "Không tìm thấy ngân sách.",
+          "Another budget with this criteria already exists.": "Đã tồn tại ngân sách khác với tiêu chí này.",
+          "No fields to update.": "Không có trường nào để cập nhật.",
+          "Amount must be greater than 0.": "Số tiền phải lớn hơn 0.",
+          "Invalid month value.": "Giá trị tháng không hợp lệ.",
+        };
         toast({
           variant: "destructive",
           title: "Lỗi cập nhật",
-          description: e.response?.data?.detail || "Đã xảy ra lỗi không xác định.",
+          description: (detail && errorMap[detail]) || detail || "Đã xảy ra lỗi không xác định.",
         });
       } else {
-        console.error("An unexpected error occurred:", e);
+        toast({
+          variant: "destructive",
+          title: "Lỗi không xác định",
+          description: "Có lỗi xảy ra khi cập nhật ngân sách. Vui lòng thử lại.",
+        });
       }
     }
   };

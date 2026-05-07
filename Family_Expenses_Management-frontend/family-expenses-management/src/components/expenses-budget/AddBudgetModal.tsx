@@ -35,6 +35,28 @@ interface AddBudgetModalProps {
   onClose: () => void;
 }
 
+// Dịch lỗi backend sang tiếng Việt thân thiện
+const translateError = (detail?: string): string => {
+  if (!detail) return "Lỗi không xác định. Vui lòng thử lại.";
+  const errorMap: Record<string, string> = {
+    "Budget for this category and user already exists for the specified month and year.":
+      "Ngân sách cho danh mục và thành viên này đã tồn tại trong tháng/năm đã chọn.",
+    "Only admin can create budgets.":
+      "Chỉ quản trị viên mới có thể tạo ngân sách.",
+    "Category not found.":
+      "Không tìm thấy danh mục. Vui lòng kiểm tra lại.",
+    "User not found in the family.":
+      "Thành viên không thuộc gia đình của bạn.",
+    "Invalid category ID format.":
+      "Mã danh mục không hợp lệ.",
+    "Invalid user ID format.":
+      "Mã thành viên không hợp lệ.",
+    "Insufficient permissions":
+      "Bạn không có quyền thực hiện thao tác này.",
+  };
+  return errorMap[detail] || detail;
+};
+
 const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchBudgets }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [amount, setAmount] = useState('');
@@ -57,11 +79,12 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
         toast({
           variant: "destructive",
           title: "Đã xảy ra lỗi!",
-          description: e.response?.data?.detail || "Lỗi không xác định",
+          description: translateError(e.response?.data?.detail),
         });
       } else {
-        console.error("An unexpected error occurred:", e);
+        toast({ variant: "destructive", title: "Lỗi không xác định", description: "Vui lòng thử lại sau." });
       }
+      throw e; // Re-throw để handleSubmit biết có lỗi
     }
   }
 
@@ -87,11 +110,12 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
         toast({
           variant: "destructive",
           title: "Đã xảy ra lỗi!",
-          description: e.response?.data?.detail || "Lỗi không xác định",
+          description: translateError(e.response?.data?.detail),
         });
       } else {
-        console.error("An unexpected error occurred:", e);
+        toast({ variant: "destructive", title: "Lỗi không xác định", description: "Vui lòng thử lại sau." });
       }
+      throw e; // Re-throw để handleSubmit biết có lỗi
     }
   }
 
@@ -116,18 +140,22 @@ const AddBudgetModal: React.FC<AddBudgetModalProps> = ({ isOpen, onClose, fetchB
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isAdmin) {
-      handleAdminAddBudget()
-    } else {
-      handleRequestBudget()
+    try {
+      if (isAdmin) {
+        await handleAdminAddBudget();
+      } else {
+        await handleRequestBudget();
+      }
+      onClose();
+      setAmount('');
+      setCategory('');
+      setPeriod('');
+      setMemberId('');
+    } catch {
+      // Lỗi đã được xử lý trong handleAdminAddBudget / handleRequestBudget
     }
-    onClose();
-    setAmount('');
-    setCategory('');
-    setPeriod('');
-    setMemberId('');
   };
 
   return (
