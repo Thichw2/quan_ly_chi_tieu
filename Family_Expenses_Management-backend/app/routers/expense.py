@@ -329,15 +329,15 @@ async def get_expenses(
     """
     expenses = []
 
-    if current_user.role == "admin":
-        # Lấy tất cả user_id trong cùng gia đình
-        family_users = await users_collection.find(
-            {"family_id": current_user.family_id}
-        ).to_list(None)
-        family_user_ids = [str(u["_id"]) for u in family_users]
-        query = {"user_id": {"$in": family_user_ids}}
-    else:
-        query = {"user_id": str(current_user.id)}
+    if not current_user.family_id:
+        return []
+
+    # Lấy tất cả user_id trong cùng gia đình
+    family_users = await users_collection.find(
+        {"family_id": current_user.family_id}
+    ).to_list(None)
+    family_user_ids = [str(u["_id"]) for u in family_users]
+    query = {"user_id": {"$in": family_user_ids}}
 
     if month is not None and year is not None:
         start_date = datetime(year, month, 1)

@@ -155,7 +155,7 @@ export default function Settings() {
                   <TableBody>
                     {members.map((member) => (
                       <TableRow key={member.id} className="hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="font-semibold text-slate-700">{member.fullname}</TableCell>
+                        <TableCell className="font-semibold text-slate-700" >{member.fullname}</TableCell>
                         <TableCell className="text-slate-500">{member.username}</TableCell>
                         <TableCell className="text-center">
                           <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">

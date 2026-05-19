@@ -41,6 +41,7 @@ const ExpenseList = ({ expenses, fetchExpenses, isReadOnly }: ExpenseListProps) 
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null)
   const { toast } = useToast()
+  const currentUserId = localStorage.getItem('user_id')
 
   const handleDeleteExpense = async () => {
     try {
@@ -68,6 +69,7 @@ const ExpenseList = ({ expenses, fetchExpenses, isReadOnly }: ExpenseListProps) 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Người chi</TableHead>
               <TableHead>Danh mục</TableHead>
               <TableHead>Số tiền</TableHead>
               <TableHead>Ngày chi</TableHead>
@@ -79,6 +81,7 @@ const ExpenseList = ({ expenses, fetchExpenses, isReadOnly }: ExpenseListProps) 
             {expenses.length > 0 ? (
               expenses.map((expense) => (
                 <TableRow key={expense._id}>
+                  <TableCell className="font-semibold text-slate-700">{expense.fullname}</TableCell>
                   <TableCell className="font-medium">{expense.category_name}</TableCell>
                   <TableCell>
                     {expense.amount.toLocaleString('vi-VN')} VNĐ
@@ -87,31 +90,33 @@ const ExpenseList = ({ expenses, fetchExpenses, isReadOnly }: ExpenseListProps) 
                   <TableCell>{expense.description || "—"}</TableCell>
                   {!isReadOnly && (
                     <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setEditingExpense(expense)}
-                          title="Chỉnh sửa"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => setDeletingExpenseId(expense._id)}
-                          title="Xóa"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {expense.user_id === currentUserId && (
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setEditingExpense(expense)}
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => setDeletingExpenseId(expense._id)}
+                            title="Xóa"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={isReadOnly ? 4 : 5} className="text-center py-10 text-gray-500 italic">
+                <TableCell colSpan={isReadOnly ? 5 : 6} className="text-center py-10 text-gray-500 italic">
                   Chưa có khoản chi nào được ghi lại.
                 </TableCell>
               </TableRow>

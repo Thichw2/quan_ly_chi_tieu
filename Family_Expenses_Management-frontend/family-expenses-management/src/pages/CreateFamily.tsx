@@ -35,14 +35,14 @@ const createSteps: Step[] = [
 ];
 
 function familyReducer(state: FamilyState, action: Action): FamilyState {
-    switch (action.type) {
-      case 'SET_NAME':
-        return { ...state, name: action.payload };
-      case 'SET_EXPENSE_CATEGORIES':
-        return { ...state, expenseCategories: action.payload };
-      default:
-        return state;
-    }
+  switch (action.type) {
+    case 'SET_NAME':
+      return { ...state, name: action.payload };
+    case 'SET_EXPENSE_CATEGORIES':
+      return { ...state, expenseCategories: action.payload };
+    default:
+      return state;
+  }
 }
 
 const TOTAL_STEPS = 2;
@@ -52,19 +52,19 @@ export default function CreateFamily() {
   const [state, dispatch] = useReducer(familyReducer, initialState);
   const [isCreating, setIsCreating] = useState(false);
   const [creationSteps, setCreationSteps] = useState<Step[]>(createSteps);
-  
+
   const nextStep = () => setStep(prev => Math.min(prev + 1, TOTAL_STEPS));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const renderStep = () => {
     switch (step) {
       case 1:
-        return <CreateFamilyName 
-          name={state.name} 
-          setName={(name: string) => dispatch({ type: 'SET_NAME', payload: name })} 
+        return <CreateFamilyName
+          name={state.name}
+          setName={(name: string) => dispatch({ type: 'SET_NAME', payload: name })}
         />;
       case 2:
-        return <CreateExpenseCategories 
+        return <CreateExpenseCategories
           categories={state.expenseCategories}
           setCategories={(categories: string[]) => dispatch({ type: 'SET_EXPENSE_CATEGORIES', payload: categories })}
         />;
@@ -74,8 +74,8 @@ export default function CreateFamily() {
   };
 
   const updateStepStatus = (index: number, status: Step['status']) => {
-    setCreationSteps(current => 
-      current.map((step, i) => 
+    setCreationSteps(current =>
+      current.map((step, i) =>
         i === index ? { ...step, status } : step
       )
     );
@@ -127,7 +127,7 @@ export default function CreateFamily() {
         </CardContent>
         <CardFooter className="flex justify-between transition-all pt-6">
           {step > 1 && (
-            <Button 
+            <Button
               variant="outline"
               onClick={prevStep}
               disabled={isCreating}
@@ -136,7 +136,7 @@ export default function CreateFamily() {
             </Button>
           )}
           {step < TOTAL_STEPS ? (
-            <Button 
+            <Button
               onClick={nextStep}
               className="ml-auto"
               disabled={isCreating}
@@ -144,7 +144,7 @@ export default function CreateFamily() {
               Tiếp theo
             </Button>
           ) : (
-            <Button 
+            <Button
               onClick={handleCreate}
               className="ml-auto bg-green-600 hover:bg-green-700"
               disabled={isCreating}
@@ -155,8 +155,8 @@ export default function CreateFamily() {
         </CardFooter>
       </Card>
 
-      <LoadingModal 
-        isOpen={isCreating} 
+      <LoadingModal
+        isOpen={isCreating}
         steps={creationSteps}
       />
     </div>

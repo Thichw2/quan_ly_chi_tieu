@@ -44,7 +44,7 @@ const UserMenu = () => {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Avatar className="cursor-pointer">
-                        <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+                        <AvatarImage src="https://upload.wikimedia.org/wikipedia/commons/2/2c/Default_pfp.svg" alt="Default Avatar" />
                         <AvatarFallback>AD</AvatarFallback>
                     </Avatar>
                 </DropdownMenuTrigger>
